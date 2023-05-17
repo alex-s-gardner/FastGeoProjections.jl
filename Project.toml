@@ -1,0 +1,13 @@
+name = "FastGeoProjections"
+uuid = "981663e8-0c94-46dd-b2cf-efc8480900ec"
+authors = ["alex s. gardner <alex.s.gardner@jpl.nasa.gov>"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
