@@ -3,6 +3,9 @@ uuid = "981663e8-0c94-46dd-b2cf-efc8480900ec"
 authors = ["alex s. gardner <alex.s.gardner@jpl.nasa.gov>"]
 version = "1.0.0-DEV"
 
+[deps]
+Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
+
 [compat]
 julia = "1"
 
