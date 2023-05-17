@@ -18,12 +18,12 @@ Note: This function assumes that the input latitude and longitude are in degrees
 This is a Julia implimnetation a Matlab version written by Andy Bliss, 9/12/2011
 """
 
-function polarstereo_fwd(longitude::Float64, latitude::Float64; a::Float64=6378137.0, e::Float64=0.08181919, lat_ts::Float64=-70.0, lon_0::Float64=0.0)# always_xy=true)
+function polarstereo_fwd(longitude::Real, latitude::Real; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Real=-70.0, lon_0::Real=0.0, always_xy=true)
 
-    #if !always_xy
-    #    # this flips the inputs if input in latitude, longitude order
-    #    latitude, longitude = (longitude, latitude)
-    #end
+    if !always_xy
+       # this flips the inputs if input in latitude, longitude order
+       latitude, longitude = (longitude, latitude)
+    end
     
     # Convert to Radians
     latitude = deg2rad(latitude)
@@ -71,7 +71,7 @@ Note: This function assumes that the input x and y coordinates are in meters, an
 This is a Julia implimnetation a Matlab version written by Andy Bliss, 9/12/2011
 """
 
-function polarstereo_inv(x, y; a=6378137.0, e=0.08181919, lat_ts=-70, lon_0=0, always_xy=true)
+function polarstereo_inv(x::Real, y::Real; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Real=-70, lon_0::Real=0, always_xy=true)
     
     # convert to radians
     lat_ts = deg2rad(lat_ts)
