@@ -1,7 +1,6 @@
 module FastGeoProjections
     
     using Proj # Proj dependancy included untill package is more mature
-    using LoopVectorization
   
     include("polarstereo.jl")
     export polarstereo_fwd

@@ -1,5 +1,4 @@
 using FastGeoProjections
-using Test
 using Proj
 
 n = 10000000;
