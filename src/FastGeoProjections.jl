@@ -1,9 +1,9 @@
 module FastGeoProjections
-    
     using Proj # Proj dependancy included untill package is more mature
-  
-    include("polarstereo.jl")
-    export polarstereo_fwd
-    export polarstereo_inv
+    using GeoFormatTypes
 
+    include("polarstereo.jl")
+    include("epsg2epsg.jl")
+    export epsg2epsg
+    export EPSG
 end

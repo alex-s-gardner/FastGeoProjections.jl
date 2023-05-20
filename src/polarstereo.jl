@@ -17,7 +17,6 @@ Note: This function assumes that the input latitude and longitude are in degrees
 
 This is a Julia implimnetation a Matlab version written by Andy Bliss, 9/12/2011
 """
-
 function polarstereo_fwd(longitude::Real, latitude::Real; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Real=-70.0, lon_0::Real=0.0, always_xy=true)
 
     if !always_xy
@@ -71,8 +70,8 @@ Note: This function assumes that the input x and y coordinates are in meters, an
 This is a Julia implimnetation a Matlab version written by Andy Bliss, 9/12/2011
 """
 
-function polarstereo_inv(x::Real, y::Real; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Real=-70, lon_0::Real=0, always_xy=true)
-    
+function polarstereo_inv(x::Real, y::Real; epsg = nothing, a::Real=nothing, e::Real=nothing, lat_ts::Real=nothing, lon_0::Real=nothing, always_xy=true)
+
     # convert to radians
     lat_ts = deg2rad(lat_ts)
     lon_0 = deg2rad(lon_0)
@@ -89,19 +88,20 @@ function polarstereo_inv(x::Real, y::Real; a::Real=6378137.0, e::Real=0.08181919
     end
     
     # this is not commented very well. See Snyder for details.
-    t_c = tan(pi/4 - lat_ts/2)/((1-e*sin(lat_ts))/(1+e*sin(lat_ts)))^(e/2)
+    t_c = tan(pi/4 - lat_ts/2)/((1-e * sin(lat_ts))/(1 + e * sin(lat_ts)))^(e/2)
     m_c = cos(lat_ts)/sqrt(1-e^2*(sin(lat_ts))^2)
-    rho = sqrt.(x^2 + y^2)
-    t = rho * t_c/(a*m_c)
+
+    rho = sqrt(x^2 + y^2)
+    t = rho * t_c / (a * m_c)
     
     # find latitude with a series instead of iterating.
     chi = pi/2 - 2 * atan(t)
-    latitude = chi + (e^2/2 + 5*e^4/24 + e^6/12 + 13*e^8/360)*sin(2*chi) +
-          (7*e^4/48 + 29*e^6/240 + 811*e^8/11520)*sin(4*chi) +
-          (7*e^6/120+81*e^8/1120)*sin(6*chi) +
-          (4279*e^8/161280)*sin(8*chi)
 
-    longitude = lon_0 + atan.(x, -y)
+    latitude = chi + (e^2/2 + 5*e^4/24 + e^6/12 + 13*e^8/360)*sin(2*chi) +
+        (7*e^4/48 + 29*e^6/240 + 811*e^8/11520)*sin(4*chi) +
+        (7*e^6/120+81*e^8/1120)*sin(6*chi) +
+        (4279*e^8/161280)*sin(8*chi)
+    longitude = lon_0 + atan(x, -y)
 
     # correct the signs and phasing
     latitude = pm * latitude
@@ -113,8 +113,8 @@ function polarstereo_inv(x::Real, y::Real; a::Real=6378137.0, e::Real=0.08181919
     longitude = rad2deg(longitude)
     
     if !always_xy
-        return latitude, longitude
+        return (latitude, longitude)
     else
-        return longitude, latitude
+        return (longitude, latitude)
     end
 end
