@@ -6,9 +6,8 @@ version = "1.0.0-DEV"
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
-KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
-MetalKernels = "fc3527f7-49a6-4297-80e3-91cc46c94af5"
 Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 
 [compat]
