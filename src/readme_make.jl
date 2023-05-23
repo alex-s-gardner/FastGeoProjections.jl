@@ -15,6 +15,7 @@ open(abspath("./README.md"), "w") do io
             # read a new / next line for every iteration          
             s = readline(f)
             println(io, "$s")
+            println(io, "\n")
         end
     end
 end
