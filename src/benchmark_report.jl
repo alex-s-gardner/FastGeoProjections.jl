@@ -43,7 +43,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = epsg2epsg(XY, epsg_from, epsg_to; threaded=false, proj_only=true)
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
 
             printstyled(io, "*Proj: multi-thread*\n", color=:lightgrey)
@@ -51,7 +51,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = epsg2epsg(XY, epsg_from, epsg_to; threaded=true, proj_only=true)
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
 
             printstyled(io, "*FastGeoProjections: single-thread*\n", color=:lightgrey)
@@ -59,7 +59,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = epsg2epsg(XY, epsg_from, epsg_to; threaded=false)
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
 
             printstyled(io, "*FastGeoProjections: multi-thread - Float64*\n", color=:lightgrey)
@@ -67,7 +67,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = epsg2epsg(XY, epsg_from, epsg_to; threaded=true)
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
 
             printstyled(io, "*FastGeoProjections: multi-thread - Float32*\n", color=:lightgrey)
@@ -76,7 +76,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = epsg2epsg(XY, epsg_from, epsg_to; threaded=true)
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
 
             printstyled(io, "*FastGeoProjections: M2 GPU - Float32 [including transfer time]*\n", color=:lightgrey)
@@ -88,7 +88,7 @@ open(abspath("./assets/benchmark.txt"), "w") do io
             XY1 = (Array(getindex(XY1, 1)), Array(getindex(XY1, 2)))
             err = Float16(maximum(abs.(vcat(XY1[1] - XY0[1], XY1[2] - XY0[2]))))
             show(io, MIME"text/plain"(), minimum(b))
-            printstyled(io, "\n  **max error:\t\t\t$err**\n", color=:lightgrey)
+            printstyled(io, "\n  MAXIMUM ERROR:\t\t$err\n", color=:lightgrey)
             println(io, "")
             println(io, "")
         end

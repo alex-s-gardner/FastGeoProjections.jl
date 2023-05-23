@@ -6,7 +6,7 @@
 
 Benchmark of currently implemented EPSGs
 
-	**EPSG:4326 to EPSG:3413 [n = 1000]**
+**EPSG:4326 to EPSG:3413 [n = 1000]**
 
 	
 
@@ -14,7 +14,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             186.500 μs
+	  time:             180.834 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -22,7 +22,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           36
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -30,7 +30,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             5.358 ms
+	  time:             5.388 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -38,7 +38,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           1658
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -46,7 +46,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             41.333 μs
+	  time:             40.958 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -54,7 +54,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           37
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -62,7 +62,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             19.042 μs
+	  time:             17.541 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -70,7 +70,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           36
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -78,7 +78,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             7.667 μs
+	  time:             7.792 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -86,7 +86,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           36
 
-	  **max error:			1.046**
+	  MAXIMUM ERROR:		1.171
 
 	
 
@@ -94,7 +94,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             2.466 ms
+	  time:             2.431 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -102,13 +102,13 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           4346
 
-	  **max error:			1.105**
+	  MAXIMUM ERROR:		1.228
 
 	
 
 	
 
-	**EPSG:3031 to EPSG:4326 [n = 1000]**
+**EPSG:3031 to EPSG:4326 [n = 1000]**
 
 	
 
@@ -116,7 +116,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             397.459 μs
+	  time:             396.833 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -124,7 +124,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           36
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -132,15 +132,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             5.245 ms
+	  time:             5.213 ms
 
 	  gctime:           0.000 ns (0.00%)
 
-	  memory:           80.14 KiB
+	  memory:           80.08 KiB
 
-	  allocs:           1661
+	  allocs:           1659
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -148,7 +148,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             44.917 μs
+	  time:             44.333 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -156,7 +156,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           44
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -164,7 +164,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             20.250 μs
+	  time:             18.750 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -172,7 +172,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           44
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -180,7 +180,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             8.500 μs
+	  time:             8.583 μs
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -188,7 +188,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           44
 
-	  **max error:			3.36e-5**
+	  MAXIMUM ERROR:		3.48e-5
 
 	
 
@@ -196,7 +196,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             3.191 ms
+	  time:             3.093 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -204,13 +204,13 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           5466
 
-	  **max error:			3.654e-5**
+	  MAXIMUM ERROR:		3.48e-5
 
 	
 
 	
 
-	**EPSG:4326 to EPSG:3413 [n = 1000000]**
+**EPSG:4326 to EPSG:3413 [n = 1000000]**
 
 	
 
@@ -218,7 +218,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             107.239 ms
+	  time:             108.872 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -226,7 +226,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           43
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -234,7 +234,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             22.278 ms
+	  time:             22.950 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -242,7 +242,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           1999666
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -250,15 +250,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             63.616 ms
+	  time:             59.284 ms
 
-	  gctime:           4.349 ms (6.84%)
+	  gctime:           1.810 ms (3.05%)
 
 	  memory:           183.11 MiB
 
 	  allocs:           61
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -266,15 +266,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             24.591 ms
+	  time:             20.887 ms
 
-	  gctime:           1.981 ms (8.06%)
+	  gctime:           2.468 ms (11.81%)
 
 	  memory:           175.48 MiB
 
 	  allocs:           59
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -282,15 +282,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             9.596 ms
+	  time:             7.766 ms
 
-	  gctime:           1.573 ms (16.39%)
+	  gctime:           0.000 ns (0.00%)
 
 	  memory:           87.74 MiB
 
 	  allocs:           59
 
-	  **max error:			1.538**
+	  MAXIMUM ERROR:		1.587
 
 	
 
@@ -298,7 +298,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             6.042 ms
+	  time:             5.861 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -306,13 +306,13 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           4372
 
-	  **max error:			1.736**
+	  MAXIMUM ERROR:		1.732
 
 	
 
 	
 
-	**EPSG:3031 to EPSG:4326 [n = 1000000]**
+**EPSG:3031 to EPSG:4326 [n = 1000000]**
 
 	
 
@@ -320,7 +320,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             349.651 ms
+	  time:             350.848 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -328,7 +328,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           43
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -336,7 +336,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             55.162 ms
+	  time:             54.614 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -344,7 +344,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           1999666
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -352,15 +352,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             73.833 ms
+	  time:             73.675 ms
 
-	  gctime:           2.276 ms (3.08%)
+	  gctime:           3.215 ms (4.36%)
 
 	  memory:           236.51 MiB
 
 	  allocs:           75
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -368,15 +368,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             26.440 ms
+	  time:             27.349 ms
 
-	  gctime:           2.374 ms (8.98%)
+	  gctime:           2.848 ms (10.42%)
 
 	  memory:           236.51 MiB
 
 	  allocs:           75
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -384,15 +384,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             10.800 ms
+	  time:             10.781 ms
 
-	  gctime:           1.643 ms (15.21%)
+	  gctime:           1.947 ms (18.06%)
 
 	  memory:           118.26 MiB
 
 	  allocs:           75
 
-	  **max error:			3.856e-5**
+	  MAXIMUM ERROR:		3.844e-5
 
 	
 
@@ -400,7 +400,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             6.938 ms
+	  time:             16.509 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -408,13 +408,13 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           5499
 
-	  **max error:			4.1e-5**
+	  MAXIMUM ERROR:		4.13e-5
 
 	
 
 	
 
-	**EPSG:4326 to EPSG:3413 [n = 10000000]**
+**EPSG:4326 to EPSG:3413 [n = 10000000]**
 
 	
 
@@ -422,15 +422,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             1.111 s
+	  time:             1.087 s
 
-	  gctime:           12.125 ms (1.09%)
+	  gctime:           4.375 ms (0.40%)
 
 	  memory:           610.35 MiB
 
 	  allocs:           43
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -438,7 +438,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             187.946 ms
+	  time:             186.603 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -446,7 +446,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           19999666
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -454,15 +454,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             660.070 ms
+	  time:             667.795 ms
 
-	  gctime:           20.549 ms (3.11%)
+	  gctime:           22.395 ms (3.35%)
 
 	  memory:           1.79 GiB
 
 	  allocs:           61
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -470,15 +470,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             282.487 ms
+	  time:             286.764 ms
 
-	  gctime:           17.656 ms (6.25%)
+	  gctime:           18.025 ms (6.29%)
 
 	  memory:           1.71 GiB
 
 	  allocs:           59
 
-	  **max error:			0.0001606**
+	  MAXIMUM ERROR:		0.0001606
 
 	
 
@@ -486,15 +486,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             122.212 ms
+	  time:             116.330 ms
 
-	  gctime:           9.555 ms (7.82%)
+	  gctime:           9.169 ms (7.88%)
 
 	  memory:           877.38 MiB
 
 	  allocs:           59
 
-	  **max error:			1.602**
+	  MAXIMUM ERROR:		1.598
 
 	
 
@@ -502,7 +502,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             62.645 ms
+	  time:             59.444 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -510,13 +510,13 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           4372
 
-	  **max error:			1.776**
+	  MAXIMUM ERROR:		1.905
 
 	
 
 	
 
-	**EPSG:3031 to EPSG:4326 [n = 10000000]**
+**EPSG:3031 to EPSG:4326 [n = 10000000]**
 
 	
 
@@ -524,15 +524,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             3.588 s
+	  time:             3.585 s
 
-	  gctime:           4.478 ms (0.12%)
+	  gctime:           0.000 ns (0.00%)
 
 	  memory:           610.35 MiB
 
 	  allocs:           43
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -540,7 +540,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             503.967 ms
+	  time:             544.866 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -548,7 +548,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           19999667
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -556,15 +556,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             800.905 ms
+	  time:             805.097 ms
 
-	  gctime:           33.112 ms (4.13%)
+	  gctime:           29.917 ms (3.72%)
 
 	  memory:           2.31 GiB
 
 	  allocs:           75
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -572,15 +572,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             329.724 ms
+	  time:             340.120 ms
 
-	  gctime:           18.215 ms (5.52%)
+	  gctime:           26.992 ms (7.94%)
 
 	  memory:           2.31 GiB
 
 	  allocs:           75
 
-	  **max error:			0.0**
+	  MAXIMUM ERROR:		0.0
 
 	
 
@@ -588,15 +588,15 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             146.504 ms
+	  time:             148.571 ms
 
-	  gctime:           15.176 ms (10.36%)
+	  gctime:           17.788 ms (11.97%)
 
 	  memory:           1.15 GiB
 
 	  allocs:           75
 
-	  **max error:			4.04e-5**
+	  MAXIMUM ERROR:		3.97e-5
 
 	
 
@@ -604,7 +604,7 @@ Benchmark of currently implemented EPSGs
 
 	BenchmarkTools.TrialEstimate: 
 
-	  time:             122.944 ms
+	  time:             79.990 ms
 
 	  gctime:           0.000 ns (0.00%)
 
@@ -612,7 +612,7 @@ Benchmark of currently implemented EPSGs
 
 	  allocs:           5499
 
-	  **max error:			4.184e-5**
+	  MAXIMUM ERROR:		4.137e-5
 
 	
 

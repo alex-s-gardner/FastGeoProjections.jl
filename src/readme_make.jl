@@ -14,7 +14,7 @@ open(abspath("./README.md"), "w") do io
         while !eof(f)
             # read a new / next line for every iteration          
             s = readline(f)
-            if contains(s, "Proj:") || contains(s, "FastGeoProjections:")
+            if contains(s, "Proj:") || contains(s, "FastGeoProjections:") || contains(s, "EPSG:")
                 println(io, "$s\n")
             else
                 println(io, "\t$s\n")
