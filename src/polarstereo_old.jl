@@ -101,6 +101,7 @@ function polarstereo_inv(x::Real, y::Real; a::Real=6378137.0, e::Real=0.08181919
                (7 * e^4 / 48 + 29 * e^6 / 240 + 811 * e^8 / 11520) * sin(4 * chi) +
                (7 * e^6 / 120 + 81 * e^8 / 1120) * sin(6 * chi) +
                (4279 * e^8 / 161280) * sin(8 * chi)
+    
     longitude = lon_0 + atan(x, -y)
 
     # correct the signs and phasing

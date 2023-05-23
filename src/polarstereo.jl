@@ -106,7 +106,7 @@ function polarstereo_inv(x, y; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Re
 
     if threaded
         rho = @turbo sqrt.((pm * x).^2 .+ (pm * y).^2)
-        t = @turbo rho * (t_c / (a * m_c))
+        t = @turbo rho * t_c / (a * m_c)
         
         # find latitude with a series instead of iterating.
         chi = @turbo p/2 .- 2 * atan.(t)
@@ -125,7 +125,7 @@ function polarstereo_inv(x, y; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Re
 
     else
         rho = sqrt.((pm * x).^2 .+ (pm * y).^2)
-        t = rho * (t_c / (a * m_c))
+        t = rho * t_c / (a * m_c)
         
         # find latitude with a series instead of iterating.
         chi = p/2 .- 2 * atan.(t)
@@ -133,9 +133,9 @@ function polarstereo_inv(x, y; a::Real=6378137.0, e::Real=0.08181919, lat_ts::Re
         latitude = chi .+ (e^2 / 2 + 5 * e^4 / 24 + e^6 / 12 + 13 * e^8 / 360) * sin.(2 * chi) .+
             (7 * e^4 / 48 + 29 * e^6 / 240 + 811 * e^8 / 11520) * sin.(4 * chi) +
             (7 * e^6 / 120 + 81 * e^8 / 1120) * sin.(6 * chi) .+
-            (4279 * e^8 / 161280) * sin.(8 * chi)
-
-        longitude = lon_0 .+ atan.(pm * x, y)
+                   (4279 * e^8 / 161280) * sin.(8 * chi)
+        
+        longitude = lon_0 .+ atan.(x*pm, -y*pm)
 
         # correct the signs and phasing
         latitude = pm * latitude * r2d
