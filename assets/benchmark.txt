@@ -2,7 +2,7 @@
 
 *Proj: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             180.834 μs
+  time:             187.250 μs
   gctime:           0.000 ns (0.00%)
   memory:           64.44 KiB
   allocs:           36
@@ -10,58 +10,7 @@ BenchmarkTools.TrialEstimate:
 
 *Proj: multi-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             5.388 ms
-  gctime:           0.000 ns (0.00%)
-  memory:           80.05 KiB
-  allocs:           1658
-  MAXIMUM ERROR:		0.0
-
-*FastGeoProjections: single-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             40.958 μs
-  gctime:           0.000 ns (0.00%)
-  memory:           190.91 KiB
-  allocs:           37
-  MAXIMUM ERROR:		0.0001606
-
-*FastGeoProjections: multi-thread - Float64*
-BenchmarkTools.TrialEstimate: 
-  time:             17.541 μs
-  gctime:           0.000 ns (0.00%)
-  memory:           182.97 KiB
-  allocs:           36
-  MAXIMUM ERROR:		0.0001606
-
-*FastGeoProjections: multi-thread - Float32*
-BenchmarkTools.TrialEstimate: 
-  time:             7.792 μs
-  gctime:           0.000 ns (0.00%)
-  memory:           93.84 KiB
-  allocs:           36
-  MAXIMUM ERROR:		1.171
-
-*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
-BenchmarkTools.TrialEstimate: 
-  time:             2.431 ms
-  gctime:           0.000 ns (0.00%)
-  memory:           146.69 KiB
-  allocs:           4346
-  MAXIMUM ERROR:		1.228
-
-
-**EPSG:3031 to EPSG:4326 [n = 1000]**
-
-*Proj: single-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             396.833 μs
-  gctime:           0.000 ns (0.00%)
-  memory:           64.44 KiB
-  allocs:           36
-  MAXIMUM ERROR:		0.0
-
-*Proj: multi-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             5.213 ms
+  time:             5.152 ms
   gctime:           0.000 ns (0.00%)
   memory:           80.08 KiB
   allocs:           1659
@@ -69,42 +18,297 @@ BenchmarkTools.TrialEstimate:
 
 *FastGeoProjections: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             44.333 μs
+  time:             39.625 μs
   gctime:           0.000 ns (0.00%)
-  memory:           246.47 KiB
-  allocs:           44
-  MAXIMUM ERROR:		0.0
+  memory:           190.91 KiB
+  allocs:           37
+  MAXIMUM ERROR:		0.00016054371371865273
 
 *FastGeoProjections: multi-thread - Float64*
 BenchmarkTools.TrialEstimate: 
-  time:             18.750 μs
+  time:             18.208 μs
   gctime:           0.000 ns (0.00%)
-  memory:           246.47 KiB
-  allocs:           44
-  MAXIMUM ERROR:		0.0
+  memory:           182.97 KiB
+  allocs:           36
+  MAXIMUM ERROR:		0.00016054417937994003
 
 *FastGeoProjections: multi-thread - Float32*
 BenchmarkTools.TrialEstimate: 
-  time:             8.583 μs
+  time:             7.792 μs
   gctime:           0.000 ns (0.00%)
-  memory:           126.34 KiB
-  allocs:           44
-  MAXIMUM ERROR:		3.48e-5
+  memory:           93.84 KiB
+  allocs:           36
+  MAXIMUM ERROR:		0.9967587548308074
 
 *FastGeoProjections: M2 GPU - Float32 [including transfer time]*
 BenchmarkTools.TrialEstimate: 
-  time:             3.093 ms
+  time:             2.376 ms
   gctime:           0.000 ns (0.00%)
-  memory:           182.63 KiB
-  allocs:           5466
-  MAXIMUM ERROR:		3.48e-5
+  memory:           146.69 KiB
+  allocs:           4346
+  MAXIMUM ERROR:		1.1478259535506368
+
+
+**EPSG:3031 to EPSG:4326 [n = 1000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             395.541 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           64.44 KiB
+  allocs:           36
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             5.255 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           80.08 KiB
+  allocs:           1659
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             40.833 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           270.28 KiB
+  allocs:           47
+  MAXIMUM ERROR:		1.4681305060548766e-9
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             20.125 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           254.41 KiB
+  allocs:           45
+  MAXIMUM ERROR:		1.4681305060548766e-9
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             8.500 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           130.41 KiB
+  allocs:           45
+  MAXIMUM ERROR:		3.4339591138632386e-5
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             3.514 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           199.50 KiB
+  allocs:           6013
+  MAXIMUM ERROR:		3.468682075435936e-5
+
+
+**EPSG:4326 to EPSG:3413 [n = 10000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             1.081 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           626.39 KiB
+  allocs:           43
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             5.596 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           783.03 KiB
+  allocs:           19664
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             490.208 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           1.83 MiB
+  allocs:           61
+  MAXIMUM ERROR:		0.00016054557636380196
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             165.041 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           1.76 MiB
+  allocs:           59
+  MAXIMUM ERROR:		0.00016054557636380196
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             64.625 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           899.92 KiB
+  allocs:           59
+  MAXIMUM ERROR:		1.3652363722212613
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             2.862 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           216.78 KiB
+  allocs:           4348
+  MAXIMUM ERROR:		1.3534510317258537
+
+
+**EPSG:3031 to EPSG:4326 [n = 10000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             3.303 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           626.39 KiB
+  allocs:           43
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             5.831 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           783.03 KiB
+  allocs:           19664
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             586.250 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           2.60 MiB
+  allocs:           81
+  MAXIMUM ERROR:		1.4689760519104311e-9
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             200.291 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           2.44 MiB
+  allocs:           77
+  MAXIMUM ERROR:		1.4689760519104311e-9
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             80.375 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           1.22 MiB
+  allocs:           77
+  MAXIMUM ERROR:		3.7456923791978625e-5
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             3.755 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           269.59 KiB
+  allocs:           6015
+  MAXIMUM ERROR:		3.9092833461040755e-5
+
+
+**EPSG:4326 to EPSG:3413 [n = 100000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             10.594 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           6.10 MiB
+  allocs:           43
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             7.478 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           7.63 MiB
+  allocs:           199663
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             5.794 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           18.31 MiB
+  allocs:           61
+  MAXIMUM ERROR:		0.00016054557636380196
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             1.749 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           17.55 MiB
+  allocs:           59
+  MAXIMUM ERROR:		0.00016054557636380196
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             628.167 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           8.78 MiB
+  allocs:           59
+  MAXIMUM ERROR:		1.3468339215032756
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             3.341 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           919.91 KiB
+  allocs:           4348
+  MAXIMUM ERROR:		1.4886803727131337
+
+
+**EPSG:3031 to EPSG:4326 [n = 100000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             34.915 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           6.10 MiB
+  allocs:           43
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             10.325 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           7.63 MiB
+  allocs:           199666
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             7.064 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           25.94 MiB
+  allocs:           81
+  MAXIMUM ERROR:		1.4689831573377887e-9
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             2.804 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           24.42 MiB
+  allocs:           77
+  MAXIMUM ERROR:		1.4689831573377887e-9
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             922.542 μs
+  gctime:           0.000 ns (0.00%)
+  memory:           12.21 MiB
+  allocs:           77
+  MAXIMUM ERROR:		3.7734966497282585e-5
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             4.619 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           972.72 KiB
+  allocs:           6015
+  MAXIMUM ERROR:		3.983946101016045e-5
 
 
 **EPSG:4326 to EPSG:3413 [n = 1000000]**
 
 *Proj: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             108.872 ms
+  time:             107.129 ms
   gctime:           0.000 ns (0.00%)
   memory:           61.04 MiB
   allocs:           43
@@ -112,7 +316,7 @@ BenchmarkTools.TrialEstimate:
 
 *Proj: multi-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             22.950 ms
+  time:             23.387 ms
   gctime:           0.000 ns (0.00%)
   memory:           76.30 MiB
   allocs:           1999666
@@ -120,42 +324,42 @@ BenchmarkTools.TrialEstimate:
 
 *FastGeoProjections: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             59.284 ms
-  gctime:           1.810 ms (3.05%)
+  time:             64.443 ms
+  gctime:           4.581 ms (7.11%)
   memory:           183.11 MiB
   allocs:           61
-  MAXIMUM ERROR:		0.0001606
+  MAXIMUM ERROR:		0.00016054604202508926
 
 *FastGeoProjections: multi-thread - Float64*
 BenchmarkTools.TrialEstimate: 
-  time:             20.887 ms
-  gctime:           2.468 ms (11.81%)
+  time:             27.120 ms
+  gctime:           4.397 ms (16.21%)
   memory:           175.48 MiB
   allocs:           59
-  MAXIMUM ERROR:		0.0001606
+  MAXIMUM ERROR:		0.00016054604202508926
 
 *FastGeoProjections: multi-thread - Float32*
 BenchmarkTools.TrialEstimate: 
-  time:             7.766 ms
+  time:             8.981 ms
   gctime:           0.000 ns (0.00%)
   memory:           87.74 MiB
   allocs:           59
-  MAXIMUM ERROR:		1.587
+  MAXIMUM ERROR:		1.6110698659904301
 
 *FastGeoProjections: M2 GPU - Float32 [including transfer time]*
 BenchmarkTools.TrialEstimate: 
-  time:             5.861 ms
+  time:             5.870 ms
   gctime:           0.000 ns (0.00%)
   memory:           7.77 MiB
   allocs:           4372
-  MAXIMUM ERROR:		1.732
+  MAXIMUM ERROR:		1.7928536888211966
 
 
 **EPSG:3031 to EPSG:4326 [n = 1000000]**
 
 *Proj: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             350.848 ms
+  time:             348.366 ms
   gctime:           0.000 ns (0.00%)
   memory:           61.04 MiB
   allocs:           43
@@ -163,7 +367,7 @@ BenchmarkTools.TrialEstimate:
 
 *Proj: multi-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             54.614 ms
+  time:             55.365 ms
   gctime:           0.000 ns (0.00%)
   memory:           76.30 MiB
   allocs:           1999666
@@ -171,101 +375,50 @@ BenchmarkTools.TrialEstimate:
 
 *FastGeoProjections: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             73.675 ms
-  gctime:           3.215 ms (4.36%)
-  memory:           236.51 MiB
-  allocs:           75
-  MAXIMUM ERROR:		0.0
+  time:             79.496 ms
+  gctime:           5.568 ms (7.00%)
+  memory:           259.40 MiB
+  allocs:           81
+  MAXIMUM ERROR:		1.4689902627651463e-9
 
 *FastGeoProjections: multi-thread - Float64*
 BenchmarkTools.TrialEstimate: 
-  time:             27.349 ms
-  gctime:           2.848 ms (10.42%)
-  memory:           236.51 MiB
-  allocs:           75
-  MAXIMUM ERROR:		0.0
+  time:             32.646 ms
+  gctime:           4.711 ms (14.43%)
+  memory:           244.14 MiB
+  allocs:           77
+  MAXIMUM ERROR:		1.4689902627651463e-9
 
 *FastGeoProjections: multi-thread - Float32*
 BenchmarkTools.TrialEstimate: 
-  time:             10.781 ms
-  gctime:           1.947 ms (18.06%)
-  memory:           118.26 MiB
-  allocs:           75
-  MAXIMUM ERROR:		3.844e-5
+  time:             10.061 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           122.07 MiB
+  allocs:           77
+  MAXIMUM ERROR:		3.842157445888006e-5
 
 *FastGeoProjections: M2 GPU - Float32 [including transfer time]*
 BenchmarkTools.TrialEstimate: 
-  time:             16.509 ms
+  time:             7.229 ms
   gctime:           0.000 ns (0.00%)
-  memory:           7.80 MiB
-  allocs:           5499
-  MAXIMUM ERROR:		4.13e-5
+  memory:           7.82 MiB
+  allocs:           6049
+  MAXIMUM ERROR:		4.087777818995164e-5
 
 
 **EPSG:4326 to EPSG:3413 [n = 10000000]**
 
 *Proj: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             1.087 s
-  gctime:           4.375 ms (0.40%)
+  time:             1.112 s
+  gctime:           6.149 ms (0.55%)
   memory:           610.35 MiB
   allocs:           43
   MAXIMUM ERROR:		0.0
 
 *Proj: multi-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             186.603 ms
-  gctime:           0.000 ns (0.00%)
-  memory:           762.94 MiB
-  allocs:           19999666
-  MAXIMUM ERROR:		0.0
-
-*FastGeoProjections: single-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             667.795 ms
-  gctime:           22.395 ms (3.35%)
-  memory:           1.79 GiB
-  allocs:           61
-  MAXIMUM ERROR:		0.0001606
-
-*FastGeoProjections: multi-thread - Float64*
-BenchmarkTools.TrialEstimate: 
-  time:             286.764 ms
-  gctime:           18.025 ms (6.29%)
-  memory:           1.71 GiB
-  allocs:           59
-  MAXIMUM ERROR:		0.0001606
-
-*FastGeoProjections: multi-thread - Float32*
-BenchmarkTools.TrialEstimate: 
-  time:             116.330 ms
-  gctime:           9.169 ms (7.88%)
-  memory:           877.38 MiB
-  allocs:           59
-  MAXIMUM ERROR:		1.598
-
-*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
-BenchmarkTools.TrialEstimate: 
-  time:             59.444 ms
-  gctime:           0.000 ns (0.00%)
-  memory:           76.43 MiB
-  allocs:           4372
-  MAXIMUM ERROR:		1.905
-
-
-**EPSG:3031 to EPSG:4326 [n = 10000000]**
-
-*Proj: single-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             3.585 s
-  gctime:           0.000 ns (0.00%)
-  memory:           610.35 MiB
-  allocs:           43
-  MAXIMUM ERROR:		0.0
-
-*Proj: multi-thread*
-BenchmarkTools.TrialEstimate: 
-  time:             544.866 ms
+  time:             187.284 ms
   gctime:           0.000 ns (0.00%)
   memory:           762.94 MiB
   allocs:           19999667
@@ -273,34 +426,85 @@ BenchmarkTools.TrialEstimate:
 
 *FastGeoProjections: single-thread*
 BenchmarkTools.TrialEstimate: 
-  time:             805.097 ms
-  gctime:           29.917 ms (3.72%)
-  memory:           2.31 GiB
-  allocs:           75
-  MAXIMUM ERROR:		0.0
+  time:             679.333 ms
+  gctime:           28.664 ms (4.22%)
+  memory:           1.79 GiB
+  allocs:           61
+  MAXIMUM ERROR:		0.00016054604202508926
 
 *FastGeoProjections: multi-thread - Float64*
 BenchmarkTools.TrialEstimate: 
-  time:             340.120 ms
-  gctime:           26.992 ms (7.94%)
-  memory:           2.31 GiB
-  allocs:           75
-  MAXIMUM ERROR:		0.0
+  time:             296.612 ms
+  gctime:           21.217 ms (7.15%)
+  memory:           1.71 GiB
+  allocs:           59
+  MAXIMUM ERROR:		0.00016054650768637657
 
 *FastGeoProjections: multi-thread - Float32*
 BenchmarkTools.TrialEstimate: 
-  time:             148.571 ms
-  gctime:           17.788 ms (11.97%)
-  memory:           1.15 GiB
-  allocs:           75
-  MAXIMUM ERROR:		3.97e-5
+  time:             123.754 ms
+  gctime:           10.698 ms (8.64%)
+  memory:           877.38 MiB
+  allocs:           59
+  MAXIMUM ERROR:		1.6304851155728102
 
 *FastGeoProjections: M2 GPU - Float32 [including transfer time]*
 BenchmarkTools.TrialEstimate: 
-  time:             79.990 ms
+  time:             55.928 ms
   gctime:           0.000 ns (0.00%)
-  memory:           76.47 MiB
-  allocs:           5499
-  MAXIMUM ERROR:		4.137e-5
+  memory:           76.43 MiB
+  allocs:           4372
+  MAXIMUM ERROR:		1.7781010014005005
+
+
+**EPSG:3031 to EPSG:4326 [n = 10000000]**
+
+*Proj: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             3.480 s
+  gctime:           0.000 ns (0.00%)
+  memory:           610.35 MiB
+  allocs:           43
+  MAXIMUM ERROR:		0.0
+
+*Proj: multi-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             514.319 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           762.94 MiB
+  allocs:           19999666
+  MAXIMUM ERROR:		0.0
+
+*FastGeoProjections: single-thread*
+BenchmarkTools.TrialEstimate: 
+  time:             837.784 ms
+  gctime:           38.670 ms (4.62%)
+  memory:           2.53 GiB
+  allocs:           81
+  MAXIMUM ERROR:		1.468997368192504e-9
+
+*FastGeoProjections: multi-thread - Float64*
+BenchmarkTools.TrialEstimate: 
+  time:             345.643 ms
+  gctime:           36.761 ms (10.64%)
+  memory:           2.38 GiB
+  allocs:           77
+  MAXIMUM ERROR:		1.468997368192504e-9
+
+*FastGeoProjections: multi-thread - Float32*
+BenchmarkTools.TrialEstimate: 
+  time:             167.830 ms
+  gctime:           30.819 ms (18.36%)
+  memory:           1.19 GiB
+  allocs:           77
+  MAXIMUM ERROR:		3.930840932753199e-5
+
+*FastGeoProjections: M2 GPU - Float32 [including transfer time]*
+BenchmarkTools.TrialEstimate: 
+  time:             70.751 ms
+  gctime:           0.000 ns (0.00%)
+  memory:           76.48 MiB
+  allocs:           6049
+  MAXIMUM ERROR:		4.2183247330740414e-5
 
 
