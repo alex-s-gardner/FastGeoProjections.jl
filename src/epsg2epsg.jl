@@ -7,7 +7,7 @@ fast_epsgs = [EPSG(3031), EPSG(3413), EPSG(4326)]
 Transforms a point Tuple, or a vector of point Tuples, `XY` from one coordinate reference systems defined by `epsg_from` to another define by `epsg_to`. Multithreading can be turned on and off with `threaded`. Optimized Julia native code used when available. To force use of Proj 
 
 """
-function epsg2epsg(XY::Union{Vector{Tuple{<:AbstractFloat,<:AbstractFloat}}, Tuple{<:AbstractFloat,<:AbstractFloat}}, epsg_from::EPSG, epsg_to::EPSG; threaded=true, proj_only=false)
+function epsg2epsg(XY, epsg_from::EPSG, epsg_to::EPSG; threaded=true, proj_only=false)
     if (any(fast_epsgs .== Ref(epsg_from)) || isutm(epsg_from)) && (any(fast_epsgs .== Ref(epsg_to)) || isutm(epsg_to)) && !proj_only
         # if both EPSG codes have been implimented in then use native transformation
         xy = project_to(epsg_to; threaded=threaded)(project_from(epsg_from; threaded=threaded)(XY))

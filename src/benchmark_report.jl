@@ -112,12 +112,15 @@ end
 
 
 Makie.inline!(false)
-f = Figure(resolution=(1000, 750 * length(epsg_from_to)), fontsize = 25)
+f = Figure(resolution=(1500, 750 * ceil(length(epsg_from_to)/2)), fontsize = 25)
 
 for (i, epsg) in enumerate(epsg_from_to)
    
+    r = ceil(Int64, i / 2)
+    c = i - 2*(r-1)
+
     ax = Axis(
-        f[i, 1],
+        f[c, r],
         yscale=log10,
         xscale=log10,
         title="EPSG:$(epsg[1].val) => EPSG:$(epsg[2].val)",
@@ -137,7 +140,7 @@ for (i, epsg) in enumerate(epsg_from_to)
         lines!(df[rs, :npoints], df[rs, solution*"_time"] ./ 1000, label= "$solution [ME=$err]", linewidth = 3)
     end
 
-    axislegend(ax, framevisible=false, position=:rb)
+    axislegend(ax, framevisible=false, position=:lt)
     f
 end
 
