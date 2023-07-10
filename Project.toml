@@ -10,7 +10,9 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
 LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
 Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 
 [compat]
