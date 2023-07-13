@@ -84,7 +84,12 @@ function Base.inv(
     )
 end
 
-function (trans::Transformation)(x::Union{Real,Vector{<:Real}}, y::Union{Real,Vector{<:Real}})
-    p = trans.pj(x, y)
+function (trans::Transformation)(x::Real, y::Real)
+    p = trans.pj(Float64(x), Float64(y))
+    return p
+end
+
+function (trans::Transformation)(x::Vector{<:Real}, y::Vector{<:Real})
+    p = trans.pj(Float64.(x), Float64.(y))
     return p
 end

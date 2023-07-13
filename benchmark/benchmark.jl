@@ -13,7 +13,10 @@ epsg_target_source = [
     (EPSG(32735), EPSG(4326))
 ]
 system = "Apple M2 Max"
-solutions = ["Proj: single-thread", "Proj:multi-thread", "FGP:single-thread", "FGP:multi-thread-64", "FGP:multi-thread-32"] #, "FGP:GPU-32"]
+threads = Threads.nthreads()
+
+solutions = ["Proj: single-thread", "Proj: multi-thread", "FGP: single-thread", "FGP: multi-thread"] 
+# Float32 and GPU yielded little benefit 
 
 df = DataFrame();
 for solution in solutions
@@ -70,7 +73,7 @@ for (i, n) in enumerate(ns)
         df[r, :epsg_target_source] = epsg_target_source[k];
 
         printstyled("**EPSG:$(source_epsg.val) to EPSG:$(target_epsg.val) [n = $n]**\n", color=:blue)
-        trans = FGP.Transformation(source_epsg, target_epsg; threaded=false, proj_only=true, always_xy=true)
+        trans = FastGeoProjections.Transformation(source_epsg, target_epsg; threaded=false, proj_only=true, always_xy=true)
         X0, Y0 = trans(X, Y)
 
         printstyled("*Proj: single-thread*\n", color=:lightgrey)
@@ -89,50 +92,44 @@ for (i, n) in enumerate(ns)
 
         printstyled("*FastGeoProjections: multi-thread - Float64*\n", color=:lightgrey)
         threaded = true; proj_only = false; always_xy = true
-        df = trans_bench(X, Y, X0, Y0, df, r, solutions[4], source_epsg, target_epsg, threaded, proj_only, always_xy)
-
-        printstyled("*FastGeoProjections: multi-thread - Float32*\n", color=:lightgrey)
-        X = Float32.(X)
-        Y = Float32.(Y) 
-        threaded = true; proj_only = false; always_xy = true
-        df = trans_bench(X, Y, X0, Y0, df, r, solutions[5], source_epsg, target_epsg, threaded, proj_only, always_xy)
-        
+        df = trans_bench(X, Y, X0, Y0, df, r, solutions[4], source_epsg, target_epsg, threaded, proj_only, always_xy)        
     end
 end
 
 
 Makie.inline!(false)
 f = Figure(resolution=(1500, 750 * ceil(length(epsg_target_source)/2)), fontsize = 25)
-
+col = Makie.wong_colors();
 for (i, epsg) in enumerate(epsg_target_source)
    
     r = ceil(Int64, i / 2)
     c = i - 2*(r-1)
 
     ax = Axis(
-        f[c, r],
+        f[r, c],
         yscale=log10,
         xscale=log10,
         title="EPSG:$(epsg[1].val) => EPSG:$(epsg[2].val)",
         yminorticksvisible=true,
         yminorgridvisible=true,
-        xlabel="number of points converted",
+        xlabel="points converted",
         ylabel="compute time [µs]",
         yminorticks=IntervalsBetween(5),
     )
 
     rs = df.epsg_target_source .== [epsg]
     re = (df.epsg_target_source .== [epsg]) .& (df[:, :npoints] .== maximum(ns))
-    for  solution in solutions
 
-        err = df[re, solution*"_err"]
-        err = round(err[1], sigdigits=2, base=10)
-        lines!(df[rs, :npoints], df[rs, solution*"_time"] ./ 1000, label= "$solution [ME=$err]", linewidth = 3)
+    lins = [lines!(df[rs, :npoints], df[rs, solution*"_time"] ./ 1000, label="$solution", linewidth=6, color=col[i]) for (i, solution) in enumerate(solutions)]
+
+    if i == 1
+        legends = axislegend(ax, lins, solutions, position=:lt)
     end
 
-    axislegend(ax, framevisible=false, position=:lt)
-    f
 end
+
+supertitle = Label(f[0, :], "FastGeoProjections.jl benchmarks,  $system using $threads threads", fontsize=30)
+
 
 save(abspath("$outfile.jpg"), f)
 
