@@ -16,6 +16,7 @@ ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
 Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 
 [compat]
+DataFrames = "1"
 julia = "1.5"
 
 [extras]
