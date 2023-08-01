@@ -10,6 +10,7 @@ LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 
 [compat]
+Proj = "1"
 CoordinateTransformations = "0.6"
 LoopVectorization = "0.12"
 GeoFormatTypes = "0.4"
