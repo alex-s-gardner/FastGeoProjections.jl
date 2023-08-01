@@ -11,7 +11,8 @@
 
 *Example*
 ```julia
-julia> FastGeoProjections
+julia> using Pkg; Pkg.add("FastGeoProjections")
+julia> using FastGeoProjections
 julia> lat = [84.0, 83.0]; lon = [50.0, 51.0];
 julia> trans = FastGeoProjections.Transformation(EPSG(4326), EPSG(3413))
 Transformation
