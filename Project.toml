@@ -13,7 +13,7 @@ Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 Proj = "1"
 CoordinateTransformations = "0.6"
 LoopVectorization = "0.12"
-GeoFormatTypes = "0.4"
+GeoFormatTypes = "0.4.2"
 julia = "1.5"
 
 

@@ -246,6 +246,6 @@ function epsg2utmzone(epsg::EPSG)
 end
 
 function isutm(epsg::EPSG)
-    tf = Int32(floor(epsg.val, digits = -2)) == 32600 || Int32(floor(epsg.val, digits = -2)) == 32700
+    tf = Int32(floor(epsg.val[1], digits = -2)) == 32600 || Int32(floor(epsg.val[1], digits = -2)) == 32700
     return tf
 end

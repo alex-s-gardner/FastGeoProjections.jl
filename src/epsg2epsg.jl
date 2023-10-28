@@ -4,7 +4,7 @@
 Returns the Transform for points defined by `x` and `y`from one coordinate reference systems defined by `source_epsg` to another define by `target_epsg`. Coodinates `x` and `y` can be either a scalar or a vector. Multithreading can be turned on and off with `threaded`. Optimized Julia native code used when available. To force use of Proj set proj_only = true
 
 """
-function epsg2epsg(source_epsg::EPSG, target_epsg::EPSG; threaded=true, proj_only=false, always_xy=true)
+function epsg2epsg(source_epsg::EPSG{1}, target_epsg::EPSG{1}; threaded=true, proj_only=false, always_xy=true)
     if isfastepsg(source_epsg, target_epsg) && !proj_only
         # if both EPSG codes have been implimented in then use native transformation
         f = function (x::Union{Real,Vector{<:Real}}, y::Union{Real,Vector{<:Real}}) 

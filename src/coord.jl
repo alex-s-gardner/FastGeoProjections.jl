@@ -47,11 +47,22 @@ mutable struct Transformation <: CoordinateTransformations.Transformation
 end
 
 function Transformation(
-    source_epsg::Union{EPSG, String},
-    target_epsg::Union{EPSG, String};
+    source_epsg::GeoFormatTypes.EPSG{1},
+    target_epsg::GeoFormatTypes.EPSG{1};
     threaded::Bool=true,
     always_xy::Bool=false,
-    proj_only::Bool=false,
+    proj_only::Bool=false
+)
+    pj = epsg2epsg(source_epsg, target_epsg; threaded, always_xy, proj_only)
+    return Transformation(pj, threaded, proj_only)
+end
+
+function Transformation(
+    source_epsg::String,
+    target_epsg::String;
+    threaded::Bool=true,
+    always_xy::Bool=false,
+    proj_only::Bool=false
 )
     pj = epsg2epsg(EPSG(source_epsg), EPSG(target_epsg); threaded, always_xy, proj_only)
     return Transformation(pj, threaded, proj_only)
@@ -89,7 +100,7 @@ function (trans::Transformation)(x::Real, y::Real)
     return p
 end
 
-function (trans::Transformation)(x::Vector{<:Real}, y::Vector{<:Real})
+function (trans::Transformation)(x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
     p = trans.pj(Float64.(x), Float64.(y))
     return p
 end
