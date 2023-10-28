@@ -47,8 +47,8 @@ mutable struct Transformation <: CoordinateTransformations.Transformation
 end
 
 function Transformation(
-    source_epsg::GeoFormatTypes.EPSG{1},
-    target_epsg::GeoFormatTypes.EPSG{1};
+    source_epsg::EPSG,
+    target_epsg::EPSG;
     threaded::Bool=true,
     always_xy::Bool=false,
     proj_only::Bool=false

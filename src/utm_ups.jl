@@ -226,18 +226,18 @@ function utmzone2epsg(zone::Int = 0, isnorth::Bool = true)
 end
 
 function epsg2utmzone(epsg::EPSG)
-    if epsg.val[1] == 3995
+    if first(epsg.val) == 3995
         isnorth = true
         zone = 0
-    elseif epsg.val[1] == 19992
+    elseif first(epsg.val) == 19992
         isnorth = false
         zone = 0
-    elseif Int32(floor(epsg.val[1][1], digits = -2)) == 32600
+    elseif Int32(floor(first(epsg.val)[1], digits = -2)) == 32600
         isnorth = true
-        zone = epsg.val[1] - 32600
-    elseif Int32(floor(epsg.val[1], digits = -2)) == 32700
+        zone = first(epsg.val) - 32600
+    elseif Int32(floor(first(epsg.val), digits = -2)) == 32700
         isnorth = false
-        zone = epsg.val[1] - 32700
+        zone = first(epsg.val) - 32700
     else
         error("supplied epsg is not a UTM epsg")
     end
@@ -246,6 +246,6 @@ function epsg2utmzone(epsg::EPSG)
 end
 
 function isutm(epsg::EPSG)
-    tf = Int32(floor(epsg.val[1], digits = -2)) == 32600 || Int32(floor(epsg.val[1], digits = -2)) == 32700
+    tf = Int32(floor(first(epsg.val), digits = -2)) == 32600 || Int32(floor(first(epsg.val), digits = -2)) == 32700
     return tf
 end
