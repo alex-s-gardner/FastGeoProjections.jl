@@ -60,12 +60,12 @@ end
 define an ellipsoid given an EPSG
 """
 function ellipsoid(epsg::EPSG)
-    if epsg.val == 7030
+    if epsg.val[1] == 7030
         ellips = Ellipsoid(; a = 6378137., f_inv = 298.257223563, name = :WGS_84, epsg = EPSG(7030))
-    elseif epsg.val == 7019
+    elseif epsg.val[1] == 7019
         ellips = Ellipsoid(; a = 6378137., f_inv = 298.257222101, name = :GRS_1980, epsg = EPSG(7019))
     else
-        error("$(epsg.val) ellisoid is not defined, you may need to add it to ellipsoids.jl")
+        error("$(epsg.val[1]) ellisoid is not defined, you may need to add it to ellipsoids.jl")
     end
     return ellips
 end

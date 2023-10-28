@@ -16,7 +16,7 @@ function epsg2epsg(source_epsg::EPSG{1}, target_epsg::EPSG{1}; threaded=true, pr
         if threaded
             # This will work with threads (and you can add your own Proj context in ctxs)
             ctxs = [Proj.proj_context_clone() for _ in 1:Threads.nthreads()]
-            trans = [Proj.Transformation("EPSG:$(source_epsg.val)", "EPSG:$(target_epsg.val)"; ctx, always_xy=always_xy) for ctx in ctxs]
+            trans = [Proj.Transformation("EPSG:$(source_epsg.val[1])", "EPSG:$(target_epsg.val[1])"; ctx, always_xy=always_xy) for ctx in ctxs]
 
             f = function (x::Union{Real,Vector{<:Real}}, y::Union{Real,Vector{<:Real}})
                 xx = zeros(size(x))
@@ -30,7 +30,7 @@ function epsg2epsg(source_epsg::EPSG{1}, target_epsg::EPSG{1}; threaded=true, pr
             f = function (x::Union{Real,Vector{<:Real}}, y::Union{Real,Vector{<:Real}})
                 xx = zeros(size(x))
                 yy = zeros(size(x))
-                trans = Proj.Transformation("EPSG:$(source_epsg.val)", "EPSG:$(target_epsg.val)", always_xy=always_xy)
+                trans = Proj.Transformation("EPSG:$(source_epsg.val[1])", "EPSG:$(target_epsg.val[1])", always_xy=always_xy)
                 for i in eachindex(x)
                     xx[i], yy[i] = trans(x[i],y[i])
                 end
