@@ -1,7 +1,7 @@
 name = "FastGeoProjections"
 uuid = "981663e8-0c94-46dd-b2cf-efc8480900ec"
 authors = ["alex s. gardner <alex.s.gardner@jpl.nasa.gov>"]
-version = "0.0.1"
+version = "0.0.2"
 
 [deps]
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
