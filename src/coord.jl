@@ -100,7 +100,7 @@ function (trans::Transformation)(x::Real, y::Real)
     return p
 end
 
-function (trans::Transformation)(x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
+function (trans::Transformation)(x::AbstractVector, y::AbstractVector)
     p = trans.pj(Float64.(x), Float64.(y))
     return p
 end
