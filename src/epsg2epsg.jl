@@ -26,7 +26,7 @@ function epsg2epsg(source_epsg::EPSG, target_epsg::EPSG; threaded=true, proj_onl
                 end
                 return xx, yy
             end
-            foreach(Proj.proj_destroy, ctxs)
+            foreach(Proj.proj_context_destroy, ctxs)
             return f
         else
             f = function (x::Union{Real,Vector{<:Real}}, y::Union{Real,Vector{<:Real}})
