@@ -26,6 +26,10 @@ function epsg2epsg(source_epsg::EPSG, target_epsg::EPSG; threaded=true, proj_onl
                 end
                 return xx, yy
             end
+            # The transforms must be destroyed before the contexts, otherwise
+            # it will error in Proj (because it's accessing a deallocated / destroyed context).
+            foreach(finalize, transforms)
+            # Once the transforms are freed, we are safe to destroy the contexts
             foreach(Proj.proj_context_destroy, ctxs)
             return f
         else
