@@ -58,14 +58,14 @@ for (i, n) in enumerate(ns)
         elseif k == 2
             Y = -(rando * 30 .+ 60);
             X = rando * 360 .- 180;
-            X, Y = FastGeoProjections.polarstereo_fwd(X, Y; lat_ts=-71.0, lon_0=0.0);
+            X, Y = transform(FastGeoProjections.LonLatToPolarStereographic(; lat_ts=-71.0, lon_0=0.0), X, Y);
         elseif k == 3
             Y = rando * 80.
             X = rando * 9 .+ 28.5
         elseif k == 4
             Y = rando * -80.0
             X = rando * 9 .+ 22.5
-            X, Y = FastGeoProjections.utm_fwd(X, Y; epsg=EPSG(source_epsg))
+            X, Y = transform(FastGeoProjections.LonLatToUTM(EPSG(source_epsg)), X, Y)
         end
         
         r = i+(k-1)*length(ns);
