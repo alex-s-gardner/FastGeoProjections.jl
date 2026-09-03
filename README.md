@@ -135,6 +135,18 @@ lowered to. `SLEEFKernel` is the same routines with full argument reduction: sub
 anywhere, at about twice the cost, and identical in practice over the ranges a
 projection produces. `BaseKernel` is libm, which does not vectorize.
 
+*Ahead-of-time compilation*
+
+The projections compile with [`juliac`](https://docs.julialang.org/en/v1/devdocs/build/juliac/)
+into a standalone executable -- no Julia startup, no JIT.
+[`examples/juliac`](examples/juliac) is a CSV reprojection tool built that way;
+its README covers the two patterns that make an app on this package trimmable,
+and what does not survive `--trim`.
+
+```console
+$ ./fastgeoproj --input points.csv --from 4326 --to 32619 --always-xy
+```
+
 *Benchmark*
 
 ME = Maximum Error

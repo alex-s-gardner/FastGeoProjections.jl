@@ -1,0 +1,7 @@
+Manifest.toml
+fastgeoproj
+*.o
+*.a
+*.so
+*.dll
+*.dylib
