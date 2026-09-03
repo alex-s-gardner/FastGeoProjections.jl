@@ -12,6 +12,12 @@ _default_threaded() = Threads.nthreads() > 1
 # Number of Float64/Float32 lanes the machine transforms at once.
 @inline lanewidth(::Type{T}) where {T} = Int(VectorizationBase.pick_vector_width(T))
 
+# ...as a `Val`, so the width survives being captured by the chunk closures in
+# `_transform_interleaved!` and `_transform_soa!`. A closure captures a *value*:
+# `W::Int` would reach the lane loop as an ordinary integer and force it to be
+# dispatched at run time, where `Val{W}` carries the width in its type.
+@inline lanewidth_val(::Type{T}) where {T} = Val(lanewidth(T))
+
 # A dense strided array of floats is the only layout the SIMD path can address.
 _strideable(::Vector{T}) where {T<:Union{Float32,Float64}} = true
 _strideable(::Any) = false
@@ -229,12 +235,12 @@ end
 function _transform_interleaved!(Md, Ms, t, n, threaded)
     T = eltype(Ms)
     tt = adapt_eltype(t, T)
-    W = lanewidth(T)
+    W = lanewidth_val(T)
     GC.@preserve Md Ms begin
         pd = stridedpointer(Md)
         ps = stridedpointer(Ms)
         _run!(n, threaded) do lo, hi
-            _lane_range_aos!(pd, ps, tt, lo, hi, Val(W), Val(UNROLL))
+            _lane_range_aos!(pd, ps, tt, lo, hi, W, Val(UNROLL))
         end
     end
     nothing
@@ -282,12 +288,12 @@ function _transform_soa!(Xd, Yd, t::GeoTransformation, Xs, Ys, threaded)
     if islanesafe(t) && T <: Union{Float32,Float64} &&
             _strideable(Xs) && _strideable(Ys) && _strideable(Xd) && _strideable(Yd)
         tt = adapt_eltype(t, T)
-        W = lanewidth(T)
+        W = lanewidth_val(T)
         GC.@preserve Xd Yd Xs Ys begin
             pdx = stridedpointer(Xd); pdy = stridedpointer(Yd)
             psx = stridedpointer(Xs); psy = stridedpointer(Ys)
             _run!(n, threaded) do lo, hi
-                _lane_range!(pdx, pdy, psx, psy, tt, lo, hi, Val(W), Val(UNROLL))
+                _lane_range!(pdx, pdy, psx, psy, tt, lo, hi, W, Val(UNROLL))
             end
         end
     else

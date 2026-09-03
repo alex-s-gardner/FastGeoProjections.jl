@@ -248,6 +248,26 @@ end
         @test !LonLatToUTM(EPSG(32736)).isnorth
     end
 
+    @testset "UTM precision is a type parameter" begin
+        # `LonLatToUTM{T}(zone, isnorth)` is the form that keeps the operator's
+        # type inferable when the zone is only known at run time -- what an
+        # ahead-of-time compiled caller needs (see examples/juliac). The keyword
+        # form is the same operator.
+        @test LonLatToUTM{Float64}(19, true) === LonLatToUTM(19, true)
+        @test UTMToLonLat{Float64}(19, true) === UTMToLonLat(19, true)
+        @test LonLatToUTM{Float64}(EPSG(32736)).zone == 36
+
+        @test Base.infer_return_type(z -> LonLatToUTM{Float64}(z, true), (Int,)) ===
+              typeof(LonLatToUTM(19, true))
+        @test Base.infer_return_type(z -> UTMToLonLat{Float32}(z, false), (Int,)) ===
+              typeof(UTMToLonLat(19, false; T = Float32))
+
+        t32 = LonLatToUTM{Float32}(19, true)
+        @test t32.k0 isa Float32
+        @test all(x -> x isa Float32, t32(-69.0f0, 45.0f0))
+        @test_throws ArgumentError LonLatToUTM{Float64}(61, true)
+    end
+
     @testset "UTM zone to UTM zone" begin
         # a composed pipeline stays a single lane-safe point operator
         t = Transformation(EPSG(32619), EPSG(32620); always_xy = true)

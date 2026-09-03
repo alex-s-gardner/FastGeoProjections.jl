@@ -22,6 +22,7 @@ _utm_check(zone::Integer) =
 
 """
     LonLatToUTM(zone, isnorth; T = Float64, kernel = FastKernel())
+    LonLatToUTM{T}(zone, isnorth; kernel = FastKernel())
 
 Point operator taking geodetic `(lon, lat)` in decimal degrees to UTM
 `(easting, northing)` in metres, in the given `zone` (1 to 60) and hemisphere.
@@ -46,6 +47,7 @@ end
 
 """
     UTMToLonLat(zone, isnorth; T = Float64, kernel = FastKernel())
+    UTMToLonLat{T}(zone, isnorth; kernel = FastKernel())
 
 Point operator taking UTM `(easting, northing)` in metres back to geodetic
 `(lon, lat)` in decimal degrees. See [`LonLatToUTM`](@ref).
@@ -59,16 +61,20 @@ struct UTMToLonLat{T,K<:MathKernel} <: GeoTransformation
     dy::T
 end
 
-function LonLatToUTM(zone::Integer, isnorth::Bool; T::Type = Float64,
-                     kernel::MathKernel = DEFAULT_KERNEL)
+# `{T}` is the primary form: with the working precision a type parameter rather
+# than a `Type`-valued keyword, the constructed operator has a concrete type, so
+# a caller that picks a zone at run time still gets a statically typed pipeline.
+# The keyword form forwards to it and keeps the shorthand.
+function LonLatToUTM{T}(zone::Integer, isnorth::Bool;
+                        kernel::MathKernel = DEFAULT_KERNEL) where {T}
     _utm_check(zone)
     tm = LonLatToTransverseMercator{T}(; lon0 = utm_lon0(zone), lat0 = 0, kernel)
     LonLatToUTM{T,typeof(kernel)}(zone, isnorth, tm, T(UTM_K0), T(UTM_FE),
                                   isnorth ? zero(T) : T(UTM_FN))
 end
 
-function UTMToLonLat(zone::Integer, isnorth::Bool; T::Type = Float64,
-                     kernel::MathKernel = DEFAULT_KERNEL)
+function UTMToLonLat{T}(zone::Integer, isnorth::Bool;
+                        kernel::MathKernel = DEFAULT_KERNEL) where {T}
     _utm_check(zone)
     tm = TransverseMercatorToLonLat{T}(; lon0 = utm_lon0(zone), lat0 = 0, kernel)
     fn = isnorth ? zero(T) : T(UTM_FN)
@@ -76,10 +82,19 @@ function UTMToLonLat(zone::Integer, isnorth::Bool; T::Type = Float64,
                                   T(-UTM_FE / UTM_K0), T(-fn / UTM_K0))
 end
 
+LonLatToUTM(zone::Integer, isnorth::Bool; T::Type = Float64, kwargs...) =
+    LonLatToUTM{T}(zone, isnorth; kwargs...)
+UTMToLonLat(zone::Integer, isnorth::Bool; T::Type = Float64, kwargs...) =
+    UTMToLonLat{T}(zone, isnorth; kwargs...)
+
 LonLatToUTM(epsg::EPSG; kwargs...) =
     (z = epsg2utmzone(epsg); LonLatToUTM(z.zone, z.isnorth; kwargs...))
 UTMToLonLat(epsg::EPSG; kwargs...) =
     (z = epsg2utmzone(epsg); UTMToLonLat(z.zone, z.isnorth; kwargs...))
+LonLatToUTM{T}(epsg::EPSG; kwargs...) where {T} =
+    (z = epsg2utmzone(epsg); LonLatToUTM{T}(z.zone, z.isnorth; kwargs...))
+UTMToLonLat{T}(epsg::EPSG; kwargs...) where {T} =
+    (z = epsg2utmzone(epsg); UTMToLonLat{T}(z.zone, z.isnorth; kwargs...))
 
 @inline function (t::LonLatToUTM)(lon, lat)
     x, y = t.tm(lon, lat)
