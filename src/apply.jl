@@ -23,39 +23,85 @@ _strideable(::Vector{T}) where {T<:Union{Float32,Float64}} = true
 _strideable(::Any) = false
 
 """
+    isxymajor(P)
+
+Whether a dense `Vector{P}` is a valid interleaved coordinate buffer: whether
+the first float of each element is `GI.x` and the second is `GI.y`.
+
+This cannot be asked of GeoInterface. `getcoord` is an arbitrary function of
+the point -- ArchGDAL reads it out of the GDAL C API, where there is no Julia
+side memory to be ordered at all -- and `coordnames` names coordinates rather
+than describing storage, so it is neither necessary nor sufficient here: a
+type stored `(y, x)` may report the default `(:X, :Y)`, and
+`NamedTuple{(:Y,:X)}`, which GeoInterface itself accepts as a point, reports
+`(:Y, :X)` while a `(x, y)` type could too. Both pass `GI.testgeometry`.
+
+So the layout is established from `P` alone, by laying out sentinel
+coordinates in memory and asking the resulting point where its x and y are.
+That is only sound when every one of `P`'s fields bottoms out in `T`, which
+is what `_isallfloat` establishes: then every bit pattern is a valid
+instance, and the probe cannot hand an accessor something it should not
+dereference. `isbitstype` alone would not do -- `struct H; p::Ptr{Cvoid};
+q::Ptr{Cvoid}; end` is isbits and the size of two `Float64`s.
+
+`NTuple{2}` and `NTuple{3}`, `SVector{2}`, `GeometryBasics.Point2` and
+`Point3`, `GeoInterface.Wrappers.Point` and a plain `struct P; x; y; end` all
+qualify. Define `isxymajor(::Type{P}) = false` for a point type of your own to
+keep it off the fast path. Defining it as `true` does nothing on its own: a
+type the probe cannot see does not store its coordinates as a dense run of
+floats, which is the layout the SIMD path addresses.
+"""
+isxymajor(::Type{P}) where {P} = _pointlayout(P) !== nothing
+
+# `(T, ncomponents)` for a point type stored as `ncomponents` `T`s with x
+# first and y second, or `nothing` for anything else.
+function _pointlayout(::Type{P}) where {P}
+    isbitstype(P) || return nothing
+    for T in (Float64, Float32)
+        _isallfloat(P, T) || continue
+        n, r = divrem(sizeof(P), sizeof(T))
+        (r == 0 && n >= 2 && _probexy(P, T, Val(n))) || return nothing
+        return (T, n)
+    end
+    nothing
+end
+
+# Whether every field of `P` bottoms out in `T`. A field with no storage (a
+# `crs::Nothing`, say) cannot be laid out wrong, so it does not disqualify.
+_isallfloat(::Type{T}, ::Type{T}) where {T<:Union{Float32,Float64}} = true
+function _isallfloat(::Type{P}, ::Type{T}) where {P,T}
+    sizeof(P) == 0 && return true
+    isstructtype(P) || return false
+    fs = fieldtypes(P)
+    !isempty(fs) && all(F -> _isallfloat(F, T), fs)
+end
+
+# Sentinels rather than sampled values: a `(y, x)` type whose sampled points
+# happen to lie on `x == y` passes a comparison against its own contents, and
+# a freshly allocated destination has no contents to compare against at all.
+@inline function _probexy(::Type{P}, ::Type{T}, ::Val{N}) where {P,T,N}
+    p = reinterpret(P, ntuple(i -> i <= 2 ? T(i) : zero(T), Val(N)))
+    GI.geomtrait(p) isa GI.PointTrait && GI.x(p) === T(1) && GI.y(p) === T(2)
+end
+
+"""
     _interleaved(v)
 
 `v` seen as a dense `ncomponents × length(v)` matrix of floats whose first two
 rows are x and y -- or `nothing` when `v` is not laid out that way and its
 points have to be visited one at a time.
 
-Any dense vector of isbits points with two or more float components qualifies:
-`NTuple{2}` and `NTuple{3}`, `SVector{2}`, `GeometryBasics.Point2` and
-`Point3`, `GeoInterface.Wrappers.Point`, a plain `struct P; x; y; end`. A
-stride of three or four costs no more than two, because the load deinterleaves
-in hardware, so carrying a z around does not push a vector off the fast path.
-
-The layout is *checked* against `GI.x` and `GI.y` rather than assumed: a point
-type that happens to store its components in the other order falls back to the
-scalar loop instead of silently transposing every coordinate.
+A stride of three or four costs no more than two, because the load
+deinterleaves in hardware, so carrying a z around does not push a vector off
+the fast path. Whether the layout holds is a property of the element type
+alone; see [`isxymajor`](@ref).
 """
 function _interleaved(v::Array)
-    isempty(v) && return nothing
     P = eltype(v)
-    isbitstype(P) || return nothing
-    p = @inbounds v[begin]
-    GI.geomtrait(p) isa GI.PointTrait || return nothing
-    T = typeof(GI.x(p))
-    (T <: Union{Float32,Float64} && typeof(GI.y(p)) === T) || return nothing
-    ncomp, r = divrem(sizeof(P), sizeof(T))
-    (r == 0 && ncomp >= 2) || return nothing
-    M = reinterpret(reshape, T, v)
-    for i in (firstindex(v), lastindex(v))
-        q = @inbounds v[i]
-        (isequal(@inbounds(M[1, i]), GI.x(q)) && isequal(@inbounds(M[2, i]), GI.y(q))) ||
-            return nothing
-    end
-    M
+    isxymajor(P) || return nothing
+    l = _pointlayout(P)
+    l === nothing && return nothing
+    reinterpret(reshape, l[1], v)
 end
 _interleaved(::Any) = nothing
 

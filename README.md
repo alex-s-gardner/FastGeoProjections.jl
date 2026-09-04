@@ -64,9 +64,12 @@ julia> transform!(trans, [SVector(-45.0, 70.0), SVector(-44.0, 71.0)])
 ```
 
 A third component costs nothing (the load deinterleaves in hardware) and is carried
-through untouched, so `Point3` and `NTuple{3}` keep their `z`. The layout is verified
-against `GI.x`/`GI.y` at run time rather than assumed from the type: a point type that
-stores its components in the other order is transformed one point at a time -- correctly,
+through untouched, so `Point3` and `NTuple{3}` keep their `z`. Whether that layout really
+holds is settled from the point *type*, by laying sentinel coordinates out in memory and
+asking the resulting point where its x and y are. GeoInterface cannot answer it:
+`getcoord` may read out of a C API, with no Julia-side memory to be ordered, and
+`coordnames` names coordinates rather than describing storage. A point type that stores
+its components in the other order is transformed one at a time instead -- correctly,
 about half as fast. Such a type needs a `FastGeoProjections.rebuildpoint(::Type{P}, x, y)`
 method, since the scalar path has to construct each result.
 

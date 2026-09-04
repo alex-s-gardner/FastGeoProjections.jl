@@ -21,6 +21,10 @@ GI.getcoord(::GI.PointTrait, p::MyPt, i) = i == 1 ? p.x : p.y
 
 # ... and FlipPt the other way round, which no check on the type alone could
 # tell apart from MyPt.
+# isbits and exactly two Float64s wide, but its storage is not coordinates.
+# Nothing may reinterpret coordinates into this and then call an accessor.
+struct HandlePt; p::Ptr{Cvoid}; q::Ptr{Cvoid}; end
+
 struct FlipPt; y::Float64; x::Float64; end
 GI.isgeometry(::Type{FlipPt}) = true
 GI.geomtrait(::FlipPt) = GI.PointTrait()
@@ -373,13 +377,62 @@ end
             @test size(M, 1) == GI.ncoord(v[1])
             @test M[1, 3] == GI.x(v[3]) && M[2, 3] == GI.y(v[3])
         end
-        # the layout is checked by value, so a reversed one is caught -- and
-        # for that reason, not because the trait went unnoticed
+        # A reversed layout is caught, and caught because of what the type is
+        # rather than because of what a particular vector happens to hold:
+        # FlipPt is a conformant point (its `getcoord` order is x, y) that is
+        # simply stored the other way round.
         @test GI.geomtrait(mk(FlipPt)[1]) isa GI.PointTrait
         @test isbitstype(FlipPt) && sizeof(FlipPt) == 2 * sizeof(Float64)
         @test _interleaved(mk(FlipPt)) === nothing
         @test _interleaved([[lo, la] for (lo, la) in zip(lons, lats)]) === nothing
         @test _interleaved(view(mk(Tuple), 1:10)) === nothing
+    end
+
+    @testset "layout is a property of the type, not of the values" begin
+        # Sampling a vector's contents cannot answer this. Endpoints that lie
+        # on x == y are indistinguishable from an x-major layout, however many
+        # of them are checked, and the interior is then read transposed.
+        diag = [FlipPt(v, v) for v in range(45.0, 46.0; length = 64)]
+        diag[2] = FlipPt(45.5, -69.0)
+        @test all(p -> GI.x(p) == getfield(p, :x), diag)
+        @test _interleaved(diag) === nothing
+        @test !FastGeoProjections.isxymajor(FlipPt)
+
+        # GeoInterface accepts a NamedTuple as a point and lets it name its
+        # coordinates in either order, so this is a y-major isbits point that
+        # ships in GeoInterface itself.
+        YX = NamedTuple{(:Y, :X),Tuple{Float64,Float64}}
+        @test GI.geomtrait(YX((45.0, -69.0))) isa GI.PointTrait
+        @test GI.coordnames(YX((45.0, -69.0))) == (:Y, :X)
+        @test isbitstype(YX) && sizeof(YX) == 2 * sizeof(Float64)
+        @test !FastGeoProjections.isxymajor(YX)
+        @test _interleaved([YX((la, lo)) for (lo, la) in zip(lons, lats)]) === nothing
+
+        # ...and the honest layouts are still recognised, from the type alone.
+        for P in (NTuple{2,Float64}, NTuple{3,Float64}, SVector{2,Float64},
+                  SVector{2,Float32}, Point2{Float64}, Point3{Float64}, MyPt,
+                  typeof(GI.Point((1.0, 2.0))))
+            @test FastGeoProjections.isxymajor(P)
+        end
+
+        # `isbitstype` on its own would not be enough to make the probe safe:
+        # this is isbits and exactly two Float64s wide, and reinterpreting
+        # coordinates into it would hand an accessor a wild pointer.
+        @test isbitstype(HandlePt) && sizeof(HandlePt) == 2 * sizeof(Float64)
+        @test !FastGeoProjections.isxymajor(HandlePt)
+    end
+
+    @testset "a fresh destination has no values to check" begin
+        # `Vector{P}(undef, n)` of this size comes from zeroed pages, so a
+        # transposed destination reads (0.0, 0.0) wherever it is sampled and
+        # passes a comparison against its own contents trivially.
+        n = 200_000
+        src = [MyPt(-69.0 + 1e-7i, 45.0) for i in 1:n]
+        dst = Vector{FlipPt}(undef, n)
+        transform!(dst, t, src)
+        # a transposed destination is off by orders of magnitude, not by ulp,
+        # so the scalar path's couple-of-ulp tolerance is plenty to catch it
+        @test approx(dst, [t(GI.x(p), GI.y(p)) for p in src])
     end
 
     @testset "every layout gives the same answer" begin
