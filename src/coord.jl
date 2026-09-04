@@ -44,7 +44,7 @@ Transformation
     proj_only:      false
 
 julia> trans(-45.0, 70.0)
-(0.0, -2.183783023917725e6)
+(0.0, -2.187927649279021e6)
 ```
 """
 struct Transformation{F<:GeoTransformation} <: GeoTransformation
@@ -79,12 +79,16 @@ _transform_pts!(dest, t::Transformation, src, threaded) =
 _transform_soa!(Xd, Yd, t::Transformation, Xs, Ys, threaded) =
     _transform_soa!(Xd, Yd, t.f, Xs, Ys, threaded)
 
-function Base.inv(t::Transformation)
-    Transformation(t.target_epsg, t.source_epsg;
-                   always_xy = t.always_xy,
-                   threaded = t.threaded,
-                   proj_only = t.proj_only)
-end
+# Invert the pipeline rather than rebuilding one from the EPSG pair: `T` and
+# `kernel` are carried by the operator's own type and are not fields here, so
+# rebuilding silently reverted both to their defaults -- a Float32
+# transformation inverted to a Float64 one, and one built with `BaseKernel`
+# inverted to a lane-safe `FastKernel` one. Inverting the operator gives the
+# same pipeline the EPSG pair would, at the precision and kernel it was
+# built with.
+Base.inv(t::Transformation) =
+    Transformation(inv(t.f), t.target_epsg, t.source_epsg,
+                   t.always_xy, t.threaded, t.proj_only)
 
 function Base.show(io::IO, t::Transformation)
     print(io,

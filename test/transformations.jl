@@ -563,6 +563,30 @@ end
         @test all(isapprox.(collect(Yd), [p[2] for p in want]; rtol = 1e-12))
     end
 
+    @testset "inv keeps the precision and the kernel" begin
+        # neither is a field of `Transformation`; both live in the type of the
+        # operator it wraps, so an inverse rebuilt from the EPSG pair would
+        # quietly come back at Float64 with the default kernel
+        t32 = FastGeoProjections.Transformation(EPSG(4326), EPSG(3413); T = Float32)
+        @test typeof(inv(t32).f) === typeof(FastGeoProjections.pipeline(
+            EPSG(3413), EPSG(4326); T = Float32))
+        @test inv(inv(t32)).f === t32.f
+
+        tb = FastGeoProjections.Transformation(EPSG(4326), EPSG(3413);
+                                               kernel = BaseKernel())
+        @test !FastGeoProjections.islanesafe(tb)
+        @test !FastGeoProjections.islanesafe(inv(tb))
+
+        # ...and it is still the inverse, for a native pair and a Proj-backed one
+        for pair in ((4326, 32619), (4326, 3857))
+            tt = FastGeoProjections.Transformation(EPSG(pair[1]), EPSG(pair[2]);
+                                                   always_xy = true)
+            @test all(isapprox.(inv(tt)(tt(-69.0, 45.0)...), (-69.0, 45.0); atol = 1e-9))
+            @test inv(tt).source_epsg == tt.target_epsg
+            @test inv(tt).target_epsg == tt.source_epsg
+        end
+    end
+
     @testset "through a Transformation" begin
         trans = FastGeoProjections.Transformation(EPSG(4326), EPSG(32619); always_xy = true)
         v = [SVector(lo, la) for (lo, la) in zip(lons, lats)]
