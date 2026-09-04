@@ -257,9 +257,11 @@ end
         @test UTMToLonLat{Float64}(19, true) === UTMToLonLat(19, true)
         @test LonLatToUTM{Float64}(EPSG(32736)).zone == 36
 
-        @test Base.infer_return_type(z -> LonLatToUTM{Float64}(z, true), (Int,)) ===
+        # `Base.return_types` rather than `infer_return_type`: the latter is
+        # 1.11+, and the package supports 1.10.
+        @test only(Base.return_types(z -> LonLatToUTM{Float64}(z, true), (Int,))) ===
               typeof(LonLatToUTM(19, true))
-        @test Base.infer_return_type(z -> UTMToLonLat{Float32}(z, false), (Int,)) ===
+        @test only(Base.return_types(z -> UTMToLonLat{Float32}(z, false), (Int,))) ===
               typeof(UTMToLonLat(19, false; T = Float32))
 
         t32 = LonLatToUTM{Float32}(19, true)
