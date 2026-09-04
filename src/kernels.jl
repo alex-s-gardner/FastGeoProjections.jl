@@ -138,6 +138,49 @@ vectorizes(::BaseKernel) = false
 @inline sincos(::FastKernel, x) = SLEEFPirates.sincos_fast(x)
 
 """
+    conformal_ratio(kernel, e, u)
+
+`((1 − u) / (1 + u))^(e/2)`, for `u = e·sin(φ)` on an ellipsoid of eccentricity
+`e` — the isometric-latitude factor both the polar stereographic and transverse
+Mercator projections need, and `exp(−e·atanh(u))` written so that it vectorizes.
+
+A general `pow` is the wrong instrument here. It costs about five times any
+other transcendental in a loop, and that loop does not vectorize at all: LLVM
+will not vectorize a body holding both halves of `pow_fast`'s
+`exp2(y * log2_fast(x))` inlined, though each half vectorizes on its own. So a
+`pow` caps a projection's throughput however well the loop around it is written,
+and no general implementation can avoid it — handling negative bases, integer
+exponents and the infinities is what makes one too large to vectorize.
+
+Neither series needs many terms, because both arguments are small. Ellipsoids in
+use have `e < 0.09`, so `|u| ≤ e` bounds `atanh`'s odd series in `u²`, and the
+resulting `|e·atanh(u)| < 7e-3` bounds `exp`'s. Six terms each reach one ulp
+across the whole range, in twelve fused multiply-adds with no branch, no table
+and no exponent manipulation.
+
+The `e < 0.09` bound is the contract. Every ellipsoid in [`ellipsoid`](@ref)
+satisfies it by a wide margin — Earth's flattening is 1/298 — and so does any
+plausible addition, but a genuinely eccentric body would need more terms and is
+outside what this is derived for.
+"""
+@inline function conformal_ratio(K::MathKernel, e, u)
+    v = u * u
+    # atanh(u) / u, in v = u²
+    b = muladd(v, oftype(v, 1 / 11), oftype(v, 1 / 9))
+    b = muladd(v, b, oftype(v, 1 / 7))
+    b = muladd(v, b, oftype(v, 1 / 5))
+    b = muladd(v, b, oftype(v, 1 / 3))
+    b = muladd(v, b, one(v))
+    w = -e * u * b
+    # exp(w)
+    p = muladd(w, oftype(w, 1 / 120), oftype(w, 1 / 24))
+    p = muladd(w, p, oftype(w, 1 / 6))
+    p = muladd(w, p, oftype(w, 1 / 2))
+    p = muladd(w, p, one(w))
+    muladd(w, p, one(w))
+end
+
+"""
     sinhcosh(kernel, x)
 
 Both hyperbolic functions of `x`.

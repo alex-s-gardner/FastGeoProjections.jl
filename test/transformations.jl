@@ -357,6 +357,27 @@ end
         @test FastGeoProjections.vectorizes(FastKernel())
         @test FastGeoProjections.vectorizes(SLEEFKernel())
         @test !FastGeoProjections.vectorizes(BaseKernel())
+
+        @testset "conformal_ratio is a pow to one ulp" begin
+            # Its contract is `e < 0.09` and `|u| <= e`; inside that the series
+            # must be indistinguishable from the `pow` it replaces, since the
+            # projections' agreement with PROJ rests on it.
+            for K in (FastKernel(), SLEEFKernel(), BaseKernel())
+                worst = 0.0
+                for e in (0.0, 0.0033528, 0.081819190842621278, 0.0818191910428, 0.089)
+                    for u in range(-e, e; length = 401)
+                        want = ((1 - u) / (1 + u))^(e / 2)
+                        got = Math.conformal_ratio(K, e, u)
+                        worst = max(worst, abs(got - want) / abs(want))
+                    end
+                end
+                @test worst <= 2eps(Float64)
+            end
+            # e = 0 is the sphere: the factor is exactly 1 and must not drift.
+            @test Math.conformal_ratio(FastKernel(), 0.0, 0.0) === 1.0
+            # Float32 carries through without widening.
+            @test Math.conformal_ratio(FastKernel(), 0.0818f0, 0.05f0) isa Float32
+        end
     end
 end
 
