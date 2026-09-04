@@ -82,6 +82,14 @@ parses naturally into a `Vector{NTuple{2,Float64}}`, which is a dense
 interleaved buffer of coordinates — exactly what `transform!` reads and writes
 on SIMD lanes. No repacking, no struct-of-arrays shuffle.
 
+Whether a point type really has that layout is settled from the type rather
+than from a vector's contents, and the answer is a `Val{T}` rather than a
+`DataType` value, so the element type of the buffer is known statically. That
+is a package-side concern rather than something this app does, but it is what
+keeps the whole array path reachable ahead of time: returning the float type as
+an ordinary value leaves `_transform_interleaved!` unresolved for every
+operator, which is 40 verifier errors rather than the 2 below.
+
 ## What does not survive trimming
 
 **Two verifier errors, always.** Both come from `HostCPUFeatures.__init__`,
