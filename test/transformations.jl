@@ -593,13 +593,23 @@ end
         # one code. A native CRS added without being classified there would
         # come back with x and y reversed rather than failing, so walk the
         # package's own native set -- adding to it puts the new code here.
+        # a valid (lat, lon) for each code; the last branch is what a newly
+        # added CRS gets, so that it is checked rather than erroring here
         pt(code) = code == 3031 ? (-75.0, 100.0) :
                    code == 3413 ? (75.0, -45.0) :
                    (32601 <= code <= 32660) ? (45.0, FastGeoProjections.utm_lon0(code - 32600)) :
-                   (-45.0, FastGeoProjections.utm_lon0(code - 32700))
+                   (32701 <= code <= 32760) ? (-45.0, FastGeoProjections.utm_lon0(code - 32700)) :
+                   (45.0, -69.0)
         native = vcat(FastGeoProjections.fast_epsgs,
                       [EPSG(c) for c in (32601, 32619, 32660, 32701, 32733, 32760)])
         @test EPSG(4326) in FastGeoProjections.fast_epsgs
+        # the one list really is the one list: everything on it is claimed as
+        # native, and everything on it has a projection behind it
+        for c in FastGeoProjections.fast_epsg_codes
+            @test FastGeoProjections.isfastepsg(EPSG(c))
+            @test FastGeoProjections.project_to_4326(EPSG(c)) !== nothing
+            @test FastGeoProjections.project_from_4326(EPSG(c)) !== nothing
+        end
         for e in native
             code = first(e.val)
             code == 4326 && continue

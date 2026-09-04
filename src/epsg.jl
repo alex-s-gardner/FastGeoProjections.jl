@@ -49,11 +49,32 @@ function project_from_4326(epsg::EPSG; T::Type = Float64, kernel::MathKernel = D
 end
 
 """
+    fast_epsg_codes
+
+The non-UTM CRSs FastGeoProjections implements natively, as authority codes.
+
+One list, read by everything that needs it: [`isfastepsg`](@ref) and
+[`fast_epsgs`](@ref) derive from it, and the test suite walks it to check each
+code's axis order against Proj. That is the point of it being one list rather
+than three -- a CRS added here but not classified in [`isgeographic`](@ref)
+fails the suite instead of quietly returning x and y the wrong way round, and
+one added here without a projection in [`project_to_4326`](@ref) fails too.
+"""
+const fast_epsg_codes = (3031, 3413, 4326)
+
+"""
+    fast_epsgs
+
+[`fast_epsg_codes`](@ref) as `EPSG`s.
+"""
+const fast_epsgs = [EPSG(c) for c in fast_epsg_codes]
+
+"""
     isfastepsg(epsg)
 
 Whether FastGeoProjections implements `epsg` natively.
 """
-isfastepsg(epsg::EPSG) = first(epsg.val) in (4326, 3031, 3413) || isutm(epsg)
+isfastepsg(epsg::EPSG) = first(epsg.val) in fast_epsg_codes || isutm(epsg)
 isfastepsg(source::EPSG, target::EPSG) = isfastepsg(source) && isfastepsg(target)
 
 """
@@ -62,17 +83,15 @@ isfastepsg(source::EPSG, target::EPSG) = isfastepsg(source) && isfastepsg(target
 Whether `epsg` is a geographic CRS, i.e. one whose authority axis order is
 latitude first. These are the CRSs affected by `always_xy`.
 
-Defined over the CRSs the package handles natively -- what [`isfastepsg`](@ref)
-admits -- and not meant as a general answer: EPSG:4269 and EPSG:4258 are
+Defined over the CRSs the package handles natively -- [`fast_epsg_codes`](@ref)
+plus UTM -- and not meant as a general answer: EPSG:4269 and EPSG:4258 are
 geographic too, and this says otherwise. Anything else goes to Proj, which
 knows. A native CRS added without being classified here would have its axis
 order silently reversed under `always_xy = false` rather than failing, so the
-test suite checks every native code against Proj at both axis orders.
+test suite walks `fast_epsg_codes` and checks each against Proj at both axis
+orders.
 """
 isgeographic(epsg::EPSG) = first(epsg.val) == 4326
-
-# List of FastGeoProjections native projections
-const fast_epsgs = [EPSG(3031), EPSG(3413), EPSG(4326)]
 
 """
     pipeline(source_epsg, target_epsg; always_xy, proj_only, T, kernel)
