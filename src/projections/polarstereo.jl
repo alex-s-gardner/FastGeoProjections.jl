@@ -23,7 +23,6 @@ struct LonLatToPolarStereographic{T,K<:MathKernel} <: GeoTransformation
     t_c::T        # Snyder's t and m at the standard parallel
     m_c::T
     pm::T         # +1 north, -1 south
-    ehalf::T      # e/2, hoisted out of the pow
     d2r::T
     s_lon_0::T    # sine and cosine of the central meridian, for the angle
     c_lon_0::T    # subtraction a fused pipeline does in place of `sincos`
@@ -77,7 +76,7 @@ end
 # never has to recover degrees from radians
 function _lonlat_to_ps(::Type{T}, a, e, lon_0, t_c, m_c, pm, kernel::K) where {T,K}
     s0, c0 = sincos(lon_0)
-    LonLatToPolarStereographic{T,K}(a, e, lon_0, t_c, m_c, pm, e / 2, pi / 180, s0, c0, kernel)
+    LonLatToPolarStereographic{T,K}(a, e, lon_0, t_c, m_c, pm, pi / 180, s0, c0, kernel)
 end
 
 function _ps_to_lonlat(::Type{T}, a, e, lon_0, t_c, m_c, pm, kernel::K) where {T,K}
@@ -111,7 +110,7 @@ PolarStereographicToLonLat(; kwargs...) = PolarStereographicToLonLat{Float64}(; 
     latr = lat * p.d2r * p.pm
     s = Math.sin(K, latr)
     t = Math.tan(K, T(pi / 4) - latr / 2) /
-        Math.pow(K, (1 - p.e * s) / (1 + p.e * s), p.ehalf)
+        Math.conformal_ratio(K, p.e, p.e * s)
     rho = p.a * p.m_c * t / p.t_c            # true scale at lat_ts
     dl = lon * p.d2r * p.pm - p.lon_0
     sdl, cdl = Math.sincos(K, dl)
@@ -151,7 +150,7 @@ fuses_direction(::LonLatToPolarStereographic) = true
     R = sqrt(dir.d * dir.d + zp * zp)
     s = zp / R
     t = (dir.d / (R + zp)) /
-        Math.pow(K, (1 - p.e * s) / (1 + p.e * s), p.ehalf)
+        Math.conformal_ratio(K, p.e, p.e * s)
     rho = p.a * p.m_c * t / p.t_c
     # sin and cos of (lon * pm - lon_0), by angle subtraction on the direction's
     # own sine and cosine against the central meridian's precomputed pair.

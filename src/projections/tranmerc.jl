@@ -230,19 +230,20 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    _taupf(K, tau, tau1, e, ehalf)
+    _taupf(K, tau, tau1, e)
 
 `taup = cosh(σ)·tau − sinh(σ)·hypot(1, tau)` with `σ = e·atanh(e·sinφ)`: the
 tangent of the conformal latitude given the tangent of the geodetic one.
 
 Written through `w = exp(σ) = ((1+u)/(1−u))^(e/2)` rather than as
-`sinh(e·atanh(u))`. SLEEF has no fast `atanh` or `sinh`, and those two together
-cost about three times the one `pow` this needs -- which matters because the
-inverse evaluates this five times per point inside a Newton solve.
+`sinh(e·atanh(u))`, which SLEEF has no fast form of. `w` is
+[`Math.conformal_ratio`](@ref) at `-u`, since that computes the reciprocal
+ratio; getting it as a short series rather than a `pow` matters most here,
+because the inverse evaluates this five times per point inside a Newton solve.
 """
-@inline function _taupf(K, tau, tau1, e, ehalf)
+@inline function _taupf(K, tau, tau1, e)
     u = e * tau / tau1
-    w = Math.pow(K, (one(u) + u) / (one(u) - u), ehalf)
+    w = Math.conformal_ratio(K, e, -u)
     wi = inv(w)
     ((w + wi) * tau - (w - wi) * tau1) / 2
 end
@@ -405,7 +406,7 @@ end
 
     tau = slat / max(t.fmin, clat)
     tau1 = sqrt(tau * tau + one(tau))
-    taup = _taupf(K, tau, tau1, t.e, t.e / 2)
+    taup = _taupf(K, tau, tau1, t.e)
     htc = sqrt(taup * taup + clam * clam)
 
     atpole = at90
@@ -485,9 +486,9 @@ end
 end
 
 # one Newton step recovering tau from taup (Karney eq. 20)
-@inline function _tau_step(K, tau, taup_target, e, ehalf, e2m)
+@inline function _tau_step(K, tau, taup_target, e, e2m)
     tau1 = sqrt(tau * tau + one(tau))
-    taupa = _taupf(K, tau, tau1, e, ehalf)
+    taupa = _taupf(K, tau, tau1, e)
     tau + (taup_target - taupa) * (one(tau) + e2m * tau * tau) /
           (e2m * tau1 * sqrt(taupa * taupa + one(taupa)))
 end
@@ -547,11 +548,10 @@ end
     # last ulp is reached after two; Karney's own solver stops there too. The
     # old array kernel ran five unconditionally because a `@turbo` loop cannot
     # break out early.
-    eh = t.e / 2
     tau = sr / t.e2m
-    tau = _tau_step(K, tau, sr, t.e, eh, t.e2m)
-    tau = _tau_step(K, tau, sr, t.e, eh, t.e2m)
-    tau = _tau_step(K, tau, sr, t.e, eh, t.e2m)
+    tau = _tau_step(K, tau, sr, t.e, t.e2m)
+    tau = _tau_step(K, tau, sr, t.e, t.e2m)
+    tau = _tau_step(K, tau, sr, t.e, t.e2m)
 
     lat = Math.atan(K, tau) / d2r
 
