@@ -61,6 +61,13 @@ isfastepsg(source::EPSG, target::EPSG) = isfastepsg(source) && isfastepsg(target
 
 Whether `epsg` is a geographic CRS, i.e. one whose authority axis order is
 latitude first. These are the CRSs affected by `always_xy`.
+
+Defined over the CRSs the package handles natively -- what [`isfastepsg`](@ref)
+admits -- and not meant as a general answer: EPSG:4269 and EPSG:4258 are
+geographic too, and this says otherwise. Anything else goes to Proj, which
+knows. A native CRS added without being classified here would have its axis
+order silently reversed under `always_xy = false` rather than failing, so the
+test suite checks every native code against Proj at both axis orders.
 """
 isgeographic(epsg::EPSG) = first(epsg.val) == 4326
 

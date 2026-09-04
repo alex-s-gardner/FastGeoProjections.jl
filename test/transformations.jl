@@ -587,6 +587,49 @@ end
         end
     end
 
+    @testset "authority axis order matches Proj across the native set" begin
+        # `always_xy = false` means the axis order the authority defines, and
+        # where the swap goes is decided by `isgeographic`, which is a list of
+        # one code. A native CRS added without being classified there would
+        # come back with x and y reversed rather than failing, so walk the
+        # package's own native set -- adding to it puts the new code here.
+        pt(code) = code == 3031 ? (-75.0, 100.0) :
+                   code == 3413 ? (75.0, -45.0) :
+                   (32601 <= code <= 32660) ? (45.0, FastGeoProjections.utm_lon0(code - 32600)) :
+                   (-45.0, FastGeoProjections.utm_lon0(code - 32700))
+        native = vcat(FastGeoProjections.fast_epsgs,
+                      [EPSG(c) for c in (32601, 32619, 32660, 32701, 32733, 32760)])
+        @test EPSG(4326) in FastGeoProjections.fast_epsgs
+        for e in native
+            code = first(e.val)
+            code == 4326 && continue
+            @test FastGeoProjections.isfastepsg(e)
+            lat, lon = pt(code)
+            for always_xy in (false, true)
+                ours = Transformation(EPSG(4326), e; always_xy)
+                pj = Proj.Transformation("EPSG:4326", "EPSG:" * string(code); always_xy)
+                # `always_xy` decides which way round the input is read, so
+                # feed both the same pair and let them disagree if it does
+                a, b = always_xy ? (lon, lat) : (lat, lon)
+                @test all(isapprox.(ours(a, b), pj(a, b); rtol = 1e-6))
+            end
+        end
+    end
+
+    @testset "the Proj pool is checked out, not indexed" begin
+        # More concurrent tasks than the pool holds, so checkout has to block
+        # and recycle rather than hand two tasks the same PJ.
+        tp = FastGeoProjections.Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        n = 20_000
+        v = [(-69.0 + 1e-4i, 45.0) for i in 1:n]
+        want = transform(tp, v; threaded = false)
+        outs = fetch.([Threads.@spawn transform(tp, v) for _ in 1:4*Threads.nthreads()])
+        @test all(o -> o == want, outs)
+        @test transform(tp, v; threaded = true) == want
+        # ...and a bare point call, which checks one out for itself
+        @test tp(v[1]...) == want[1]
+    end
+
     @testset "through a Transformation" begin
         trans = FastGeoProjections.Transformation(EPSG(4326), EPSG(32619); always_xy = true)
         v = [SVector(lo, la) for (lo, la) in zip(lons, lats)]

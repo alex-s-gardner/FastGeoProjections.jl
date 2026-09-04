@@ -109,6 +109,20 @@ _interleaved(::Any) = nothing
 # scalar loops
 # ---------------------------------------------------------------------------
 """
+    borrow(f, t)
+
+Run `f(op)` with `op` a point operator the calling task has exclusive use of
+for the duration. Checking out once per chunk rather than once per point is
+the whole point of it, so this wraps a range of work and never a single call.
+
+Defaults to `f(t)`: only a transformation holding something that cannot be
+shared between tasks -- a PJ object, say -- needs to do anything here. A
+composition holding such a stage is not built by `pipeline`, and would fall
+back to that stage's own per-point locking.
+"""
+@inline borrow(f, t::GeoTransformation) = f(t)
+
+"""
     rebuildpoint(P, x, y)
     rebuildpoint(P, x, y, z)
 
@@ -316,7 +330,11 @@ function _transform_pts!(dest, t::GeoTransformation, src, threaded)
     # not a dense interleaved buffer, which includes a vector that does not
     # start at 1. Handing it `1:n` walked off the end with bounds checks off.
     _run!(eachindex(src), threaded) do lo, hi
-        _scalar_range!(dest, src, t, lo, hi)
+        # once per chunk, not per point: a transformation backed by a
+        # resource its task must have to itself checks one out here
+        borrow(t) do tt
+            _scalar_range!(dest, src, tt, lo, hi)
+        end
     end
     dest
 end
@@ -392,7 +410,9 @@ function _transform_soa!(Xd, Yd, t::GeoTransformation, Xs, Ys, threaded)
         end
     else
         _run!(eachindex(Xs), threaded) do lo, hi
-            _scalar_range!(Xd, Yd, Xs, Ys, t, lo, hi)
+            borrow(t) do tt
+                _scalar_range!(Xd, Yd, Xs, Ys, tt, lo, hi)
+            end
         end
     end
     (Xd, Yd)
