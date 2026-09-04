@@ -77,6 +77,24 @@ Base.inv(t::ProjTransformation) =
 
 islanesafe(::ProjTransformation) = false
 
+# The pipeline Proj resolves the EPSG pair into may be a datum shift, which is
+# a rotation and translation in Cartesian space: the height participates in it,
+# so a transformed x and y depend on the z given and the transformed z is not
+# the one passed in. Both directions of that matter -- dropping the z silently
+# transforms the point as though its height were zero, which moves x and y as
+# well as losing the height.
+preservesz(::ProjTransformation) = false
+
+# so the third coordinate goes to Proj, which applies the pipeline to it
+function (t::ProjTransformation)(x, y, z)
+    p = take!(t.pool)
+    try
+        p.pj(x, y, z)
+    finally
+        put!(t.pool, p)
+    end
+end
+
 Base.show(io::IO, t::ProjTransformation) =
     print(io, "ProjTransformation(EPSG:", first(t.source_epsg.val),
           " → EPSG:", first(t.target_epsg.val), ")")

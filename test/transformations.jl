@@ -502,6 +502,42 @@ end
         end
     end
 
+    @testset "z is transformed where the transformation changes one" begin
+        # Geographic 3D to geocentric: the height becomes a Cartesian
+        # coordinate, so a carried-across z is not merely stale but of the
+        # wrong quantity. Proj resolves the pipeline, and is the reference.
+        tz = Transformation(EPSG(4979), EPSG(4978); always_xy = true)
+        @test !FastGeoProjections.preservesz(tz)
+
+        pj = Proj.Transformation("EPSG:4979", "EPSG:4978"; always_xy = true)
+        lon, lat, h = 5.39, 52.16, 100.0
+        want = pj(lon, lat, h)
+
+        @test all(tz(lon, lat, h) .≈ want)                    # scalar, three args
+        for threaded in (false, true)
+            o = transform(tz, [(lon, lat, h)]; threaded)
+            @test all(o[1] .≈ want)
+            @test o[1][3] != h                                 # computed, not carried
+            op = transform(tz, [Point3{Float64}(lon, lat, h)]; threaded)
+            @test all(Tuple(op[1]) .≈ want)
+        end
+
+        # Dropping the height would move x and y as well: the two-argument call
+        # is the h = 0 point, which is 61 m away here. So a three-component
+        # source must not reach a path that transforms only x and y.
+        @test !isapprox(pj(lon, lat)[1], want[1]; atol = 1.0)
+
+        # ...while x and y alone still transform: there is no height to carry,
+        # and 2D in, 2D out is what such a pipeline is usually asked for.
+        @test all(transform(tz, [(lon, lat)])[1] .≈ pj(lon, lat))
+
+        # A map projection is a function of x and y, so it does preserve one.
+        @test FastGeoProjections.preservesz(Transformation(EPSG(4326), EPSG(3413)))
+        # ...and a chain is only as preserving as its least preserving stage.
+        @test !FastGeoProjections.preservesz(
+            Transformation(EPSG(4326), EPSG(3413)).f ∘ tz.f)
+    end
+
     @testset "source and destination of different widths" begin
         src = [Point3{Float64}(lo, la, 0.0) for (lo, la) in zip(lons, lats)]
         dst = Vector{Point2{Float64}}(undef, length(src))

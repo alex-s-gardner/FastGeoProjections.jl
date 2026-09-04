@@ -193,6 +193,19 @@ _carriesz(::Type{Any}) = false
     end
 end
 
+# A transformation that changes heights takes all three coordinates together:
+# the transformed z comes back from the transformation rather than from the
+# source point, and x and y depend on the z going in. Selected once per chunk
+# by `_transform_pts!`, so the three-coordinate call is not a branch per point.
+@inline function _scalar_range_z!(dst, src, t, lo, hi)
+    P = eltype(dst)
+    @inbounds for i in lo:hi
+        p = src[i]
+        x, y, z = t(GI.x(p), GI.y(p), GI.z(p))
+        dst[i] = rebuildpoint(P, x, y, z)
+    end
+end
+
 @inline function _scalar_range!(dstx, dsty, srcx, srcy, t, lo, hi)
     @inbounds for i in lo:hi
         dstx[i], dsty[i] = t(srcx[i], srcy[i])
@@ -320,8 +333,12 @@ back into `points` (or into `dest`). Returns the destination.
 `GeometryBasics.Point2`, your own two-field struct. Where the vector turns out
 to be a dense interleaved buffer of floats (see [`_interleaved`](@ref)) and `t`
 is lane-safe, the points are transformed on SIMD lanes; otherwise they go one
-at a time, still threaded. Either way only x and y are touched, so a `Point3`
-keeps its z.
+at a time, still threaded.
+
+A `Point3` keeps its z where `t` is a map projection, which is a function of x
+and y and leaves a height alone. Where `t` can change one -- a datum shift, a
+compound CRS with a geoid model -- the height is transformed along with x and y
+instead, and the points go one at a time. See [`preservesz`](@ref).
 """
 transform!(t::GeoTransformation, pts::AbstractVector; threaded = _default_threaded()) =
     transform!(pts, t, pts; threaded)
@@ -338,6 +355,23 @@ end
 
 function _transform_pts!(dest, t::GeoTransformation, src, threaded)
     n = length(src)
+    # A height-changing transformation is given the source height and returns
+    # the transformed one, so it cannot go through the interleaved path, which
+    # writes rows 1 and 2 and leaves the rest of the destination as it found it.
+    # Only where the points carry a height: with x and y alone there is none to
+    # transform, and 2D-in/2D-out is what such a pipeline is usually asked for.
+    #
+    # `islanesafe` is false for everything that changes a height today, so the
+    # check costs nothing; it is here because the two properties are independent
+    # and a lane-safe datum shift would otherwise take the carry-across path.
+    if !preservesz(t) && _ncomponents(eltype(src)) >= 3 && _carriesz(eltype(dest))
+        _run!(eachindex(src), threaded) do lo, hi
+            borrow(t) do tt
+                _scalar_range_z!(dest, src, tt, lo, hi)
+            end
+        end
+        return dest
+    end
     if islanesafe(t)
         Ms = _interleaved(src)
         Md = dest === src ? Ms : _interleaved(dest)
@@ -381,7 +415,8 @@ end
     transform(t, points; threaded = Threads.nthreads() > 1)
 
 Out-of-place [`transform!`](@ref): returns a new vector of transformed points,
-of the same type as `points`. Components past x and y are carried over.
+of the same type as `points`. Components past x and y are carried over, except
+for a height that `t` itself transforms; see [`preservesz`](@ref).
 
 A point type that cannot be built from an `(x, y)` tuple only works here if its
 vector has the interleaved layout the SIMD path writes through; otherwise pass

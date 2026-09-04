@@ -50,6 +50,28 @@ anything that calls into Proj or Base's libm.
 islanesafe(::GeoTransformation) = false
 
 """
+    preservesz(t)
+
+Whether `t` leaves a third coordinate unchanged, so that carrying it across
+untouched is the right answer.
+
+True for a map projection on a fixed datum, which is a function of x and y
+alone. False for anything that can move a height: a datum shift applies a
+Helmert transformation in Cartesian space, where a change in x and y is a
+change in z as well, and a compound CRS with a geoid model redefines the
+vertical datum outright. Either can move a height by 100 m.
+
+[`transform`](@ref) and [`transform!`](@ref) consult this before carrying a z
+over, and refuse to run rather than return a height they cannot compute.
+"""
+preservesz(::GeoTransformation) = true
+
+# A map projection is a function of x and y, so the height passes through it
+# unchanged. Defined once here rather than per projection; a transformation that
+# does change a height overrides this along with `preservesz`.
+@inline (t::GeoTransformation)(x, y, z) = (t(x, y)..., z)
+
+"""
     adapt_eltype(t, ::Type{T})
 
 Rebuild `t` with its precomputed parameters stored as `T`, so a transformation
@@ -109,6 +131,17 @@ ComposedGeoTransformation(ts::GeoTransformation...) = ComposedGeoTransformation(
     _applychain(Base.tail(ts), p[1], p[2])
 end
 
+# Each stage gets the height the one before it produced, so a chain with a datum
+# shift anywhere in it transforms the height at that stage and carries it
+# through the rest.
+@inline (c::ComposedGeoTransformation)(x, y, z) = _applychainz(c.transformations, x, y, z)
+
+@inline _applychainz(::Tuple{}, x, y, z) = (x, y, z)
+@inline function _applychainz(ts::Tuple, x, y, z)
+    p = first(ts)(x, y, z)
+    _applychainz(Base.tail(ts), p[1], p[2], p[3])
+end
+
 # `∘` keeps Base's meaning -- `outer ∘ inner` applies `inner` first -- so the
 # tuple is built inner-first, and nesting flattens
 _chain(t::GeoTransformation) = (t,)
@@ -126,6 +159,7 @@ Base.inv(c::ComposedGeoTransformation) =
     _compose(map(inv, reverse(c.transformations)))
 
 islanesafe(c::ComposedGeoTransformation) = all(islanesafe, c.transformations)
+preservesz(c::ComposedGeoTransformation) = all(preservesz, c.transformations)
 adapt_eltype(c::ComposedGeoTransformation, ::Type{T}) where {T} =
     ComposedGeoTransformation(map(t -> adapt_eltype(t, T), c.transformations))
 
