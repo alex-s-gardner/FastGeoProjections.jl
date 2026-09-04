@@ -110,26 +110,52 @@ _interleaved(::Any) = nothing
 # ---------------------------------------------------------------------------
 """
     rebuildpoint(P, x, y)
+    rebuildpoint(P, x, y, z)
 
 Build a point of type `P` out of a transformed coordinate pair. Defaults to
 `convert(P, (x, y))`, which already covers `NTuple{2}`, `SVector{2}` and
 `GeometryBasics.Point2`.
 
-Only the scalar path calls this; a vector whose points are a dense interleaved
-buffer is written component by component and never reaches it. So a point type
-of your own needs this method only if its vectors do *not* have that layout --
-the components stored in the other order, say, or the type not isbits.
+The three-argument form is used where the destination has a third component
+to fill, and gets its z from the source point, so `Point3` and `NTuple{3}`
+keep their z on this path as they do on the SIMD one. Which form is called is
+decided once per chunk from the destination type, not per point.
+
+Only the scalar path calls either; a vector whose points are a dense
+interleaved buffer is written component by component and never reaches them.
+So a point type of your own needs a method only if its vectors do *not* have
+that layout -- the components stored in the other order, say, or the type not
+isbits.
 """
 @inline rebuildpoint(::Type{P}, x, y) where {P} = convert(P, (x, y))
 @inline rebuildpoint(::Type{Any}, x, y) = (x, y)
+@inline rebuildpoint(::Type{P}, x, y, z) where {P} = convert(P, (x, y, z))
+@inline rebuildpoint(::Type{Any}, x, y, z) = (x, y, z)
+
+# Whether a destination of type `P` has a third component to fill. Keyed on
+# the destination rather than on the source, since a three-component source
+# feeding a two-component destination is allowed: the SIMD path writes rows 1
+# and 2 of each and leaves whatever else the destination has alone.
+_carriesz(::Type{P}) where {P} = (l = _pointlayout(P); l !== nothing && l[2] >= 3)
+_carriesz(::Type{Any}) = false
+
+@inline _rebuild(::Type{P}, x, y, src, ::Val{false}) where {P} = rebuildpoint(P, x, y)
+@inline _rebuild(::Type{P}, x, y, src, ::Val{true}) where {P} =
+    rebuildpoint(P, x, y, GI.z(src))
 
 # `src` holds GeoInterface points; for a tuple or an SVector `GI.x` is a
 # `getindex` and inlines away, so this costs nothing over `p[1]`.
+#
+# ...and as with `lanewidth_val`, the `Val` is built outside the loop:
+# `_carriesz` is a property of the destination type, but it does not infer as
+# a constant, so leaving it inside would put a dispatch on every point.
 @inline function _scalar_range!(dst, src, t, lo, hi)
     P = eltype(dst)
+    zv = Val(_carriesz(P))
     @inbounds for i in lo:hi
         p = src[i]
-        dst[i] = rebuildpoint(P, t(GI.x(p), GI.y(p))...)
+        x, y = t(GI.x(p), GI.y(p))
+        dst[i] = _rebuild(P, x, y, p, zv)
     end
 end
 

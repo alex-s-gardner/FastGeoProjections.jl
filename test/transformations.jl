@@ -467,6 +467,27 @@ end
         end
         v3 = [(lo, la, z) for (lo, la, z) in zip(lons, lats, zs)]
         @test transform(t, v3) == [(r[1], r[2], z) for (r, z) in zip(ref, zs)]
+
+        # ...and on the scalar path too. Any transformation that is not lane
+        # safe goes there whatever the point type: `BaseKernel` does not
+        # vectorize, and neither does anything backed by Proj.
+        tb = LonLatToUTM(19, true; kernel = BaseKernel())
+        tp = Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        @test !FastGeoProjections.islanesafe(tb)
+        @test !FastGeoProjections.islanesafe(tp)
+        for ts in (tb, tp)
+            expect = [ts(lo, la) for (lo, la) in zip(lons, lats)]
+            for threaded in (false, true)
+                o3 = transform(ts, v3; threaded)
+                @test [(p[1], p[2]) for p in o3] == expect
+                @test [p[3] for p in o3] == zs
+
+                op = transform(ts, v; threaded)
+                @test eltype(op) === Point3{Float64}
+                @test xy.(op) == expect
+                @test [p[3] for p in op] == zs
+            end
+        end
     end
 
     @testset "source and destination of different widths" begin
