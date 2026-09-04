@@ -22,6 +22,7 @@ module FastGeoProjections
 
     export EPSG
     export Transformation, transform, transform!, inv
+    export preservesz
     export GeoTransformation
     export LonLatToPolarStereographic, PolarStereographicToLonLat
     export LonLatToTransverseMercator, TransverseMercatorToLonLat
