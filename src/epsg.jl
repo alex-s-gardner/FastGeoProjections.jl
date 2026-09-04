@@ -20,6 +20,10 @@ function project_to_4326(epsg::EPSG; T::Type = Float64, kernel::MathKernel = DEF
         PolarStereographicToLonLat{T}(; lat_ts = -71.0, lon_0 = 0.0, kernel)
     elseif code == 3413
         PolarStereographicToLonLat{T}(; lat_ts = 70.0, lon_0 = -45.0, kernel)
+    elseif code == 4978
+        GeocentricToLonLat{T}(; kernel)
+    elseif code == 4979
+        Identity()
     elseif isutm(epsg)
         UTMToLonLat(epsg; T, kernel)
     else
@@ -41,6 +45,10 @@ function project_from_4326(epsg::EPSG; T::Type = Float64, kernel::MathKernel = D
         LonLatToPolarStereographic{T}(; lat_ts = -71.0, lon_0 = 0.0, kernel)
     elseif code == 3413
         LonLatToPolarStereographic{T}(; lat_ts = 70.0, lon_0 = -45.0, kernel)
+    elseif code == 4978
+        LonLatToGeocentric{T}(; kernel)
+    elseif code == 4979
+        Identity()
     elseif isutm(epsg)
         LonLatToUTM(epsg; T, kernel)
     else
@@ -60,7 +68,7 @@ than three -- a CRS added here but not classified in [`isgeographic`](@ref)
 fails the suite instead of quietly returning x and y the wrong way round, and
 one added here without a projection in [`project_to_4326`](@ref) fails too.
 """
-const fast_epsg_codes = (3031, 3413, 4326)
+const fast_epsg_codes = (3031, 3413, 4326, 4978, 4979)
 
 """
     fast_epsgs
@@ -91,7 +99,7 @@ order silently reversed under `always_xy = false` rather than failing, so the
 test suite walks `fast_epsg_codes` and checks each against Proj at both axis
 orders.
 """
-isgeographic(epsg::EPSG) = first(epsg.val) == 4326
+isgeographic(epsg::EPSG) = first(epsg.val) in (4326, 4979)
 
 """
     pipeline(source_epsg, target_epsg; always_xy, proj_only, T, kernel)
@@ -108,6 +116,13 @@ function pipeline(source_epsg::EPSG, target_epsg::EPSG;
     end
     from = project_to_4326(source_epsg; T, kernel)
     to = project_from_4326(target_epsg; T, kernel)
+    # A geocentric source hands the projection after it a `Direction` rather than
+    # a pair of angles, so the trigonometry between the two stages cancels; see
+    # `fuse.jl`. This is the one place the pipeline is not literally `to ∘ from`,
+    # and it is the same function either way.
+    if from isa GeocentricToLonLat && fuses_direction(to) && !isgeographic(target_epsg)
+        return FusedFromGeocentric(from, to)
+    end
     # native projections speak (x, y) / (lon, lat); swap at a geographic end
     # when the caller wants authority order
     if !always_xy

@@ -375,29 +375,40 @@ Base.show(io::IO, t::TransverseMercatorToLonLat{T}) where {T} =
 
 @inline function _lonlat_to_tm(t::LonLatToTransverseMercator{T, KT}, lon_in, lat, ::Val{FULL}) where {T, KT, FULL}
     K = t.kernel
+    latsign = _signnz(lat)
+    # Reflected into the first quadrant, so the sine is of |lat| and the sign is
+    # carried separately; `_tm_from_sincos_lat` folds it back at the end.
+    slat, clat = Math.sincos(K, lat * latsign * T(pi / 180))
+    _tm_from_sincos_lat(t, lon_in, slat, clat, latsign, lat == T(90), Val(FULL))
+end
+
+# The projection proper, from the sine and cosine of |latitude| rather than from
+# the latitude: what a fused pipeline supplies without forming the angle. The
+# longitude is still a number of degrees, since `_angdiff` reduces it against the
+# central meridian in compensated arithmetic that a sine and cosine cannot carry.
+@inline function _tm_from_sincos_lat(t::LonLatToTransverseMercator{T, KT}, lon_in,
+                                     slat, clat, latsign, at90, ::Val{FULL}) where {T, KT, FULL}
+    K = t.kernel
     d2r = T(pi / 180)
 
     lon = _angdiff(T, t.lon00, t.lon0, lon_in)
 
-    latsign = _signnz(lat)
     lonsign = _signnz(lon)
     lon = lon * lonsign
-    lat = lat * latsign
 
     # the far side of the central meridian is the near side reflected
     backside = lon > T(90)
-    latsign = ifelse(backside & (lat == zero(lat)), -one(latsign), latsign)
+    latsign = ifelse(backside & (slat == zero(slat)), -one(latsign), latsign)
     lon = ifelse(backside, T(180) - lon, lon)
 
     slam, clam = Math.sincos(K, lon * d2r)
-    slat, clat = Math.sincos(K, lat * d2r)
 
     tau = slat / max(t.fmin, clat)
     tau1 = sqrt(tau * tau + one(tau))
     taup = _taupf(K, tau, tau1, t.e, t.e / 2)
     htc = sqrt(taup * taup + clam * clam)
 
-    atpole = lat == T(90)
+    atpole = at90
     xip = ifelse(atpole, T(pi) / 2, Math.atan(K, taup, clam))
     etap = ifelse(atpole, zero(taup), Math.asinh(K, slam / htc))
 
@@ -591,6 +602,24 @@ end
 
 @inline (t::LonLatToTransverseMercator)(lon, lat) = _lonlat_to_tm(t, lon, lat, Val(false))
 @inline (t::TransverseMercatorToLonLat)(x, y) = _tm_to_lonlat(t, x, y, Val(false))
+
+# Only the latitude fuses. The longitude has to be reduced against the central
+# meridian by `_angdiff`, whose two-term compensated arithmetic is what keeps the
+# result exact at the branch cut, and that works on degrees rather than on a
+# sine and cosine -- an angle-subtraction identity on the direction would lose
+# exactly the low-order part `_angdiff` exists to keep. So the longitude is
+# formed and only `sincos(lat)` is saved, along with one `atan`.
+fuses_direction(::LonLatToTransverseMercator) = true
+
+@inline function project_direction(t::LonLatToTransverseMercator{T,KT},
+                                   dir::Direction) where {T,KT}
+    slat, clat = sincos_lat(dir)
+    # `_tm_from_sincos_lat` works in the first quadrant with the hemisphere
+    # carried separately, so the sine is reflected and its sign handed across.
+    latsign = _signnz(slat)
+    _tm_from_sincos_lat(t, lon_degrees(dir), slat * latsign, clat, latsign,
+                        dir.d == zero(dir.d), Val(false))
+end
 
 """
     convergence_scale(t, x, y) -> (γ, k)

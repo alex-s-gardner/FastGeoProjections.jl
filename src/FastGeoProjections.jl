@@ -13,9 +13,12 @@ module FastGeoProjections
     include("ellipsoids.jl")
     include("transformations.jl")
     include("apply.jl")
+    include("projections/direction.jl")
     include("projections/polarstereo.jl")
     include("projections/tranmerc.jl")
     include("projections/utm.jl")
+    include("projections/geocentric.jl")
+    include("projections/fuse.jl")
     include("proj.jl")
     include("epsg.jl")
     include("coord.jl")
@@ -27,5 +30,6 @@ module FastGeoProjections
     export LonLatToPolarStereographic, PolarStereographicToLonLat
     export LonLatToTransverseMercator, TransverseMercatorToLonLat
     export LonLatToUTM, UTMToLonLat, convergence_scale
+    export LonLatToGeocentric, GeocentricToLonLat
     export Math, MathKernel, BaseKernel, SLEEFKernel, FastKernel
 end
