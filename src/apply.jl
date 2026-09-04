@@ -238,20 +238,36 @@ end
 # ---------------------------------------------------------------------------
 # chunking
 # ---------------------------------------------------------------------------
-@inline function _chunk(n, k, nchunks)
-    c = cld(n, nchunks)
-    ((k - 1) * c + 1, min(k * c, n))
-end
+# Chunks are sized in points rather than cut from the thread count. Several
+# chunks per thread let a dynamic scheduler even out a thread that draws a
+# slow one -- on a machine with both performance and efficiency cores that is
+# worth about 18% at 1e6 points on eight threads over the thread-count split
+# -- and the partition stops depending on how many threads happen to be
+# available.
+#
+# 2^12 by measurement, on the principle that what matters is having enough
+# chunks to go round rather than the size of any one. 2^10 through 2^14 are
+# within noise of each other at 1e6 and 1e7 points; 2^16 and above collapse on
+# smaller inputs, nearly 4x worse at 1e5 points where they yield one or two
+# chunks for eight threads to share.
+const CHUNK = 1 << 12
 
-function _run!(body!, n, threaded)
-    if threaded && n >= 2 * Threads.nthreads()
-        nchunks = Threads.nthreads()
-        Threads.@threads :static for k in 1:nchunks
-            lo, hi = _chunk(n, k, nchunks)
-            lo <= hi && body!(lo, hi)
+# `:dynamic`, not `:static`: `:static` throws when it is nested or run
+# concurrently, and `threaded` defaults to true whenever there is more than
+# one thread, so `:static` made `transform` unusable from inside a threaded
+# loop of the caller's own. Nothing here needed the pinning -- chunk results
+# are independent, and the tail of each is masked rather than scalar.
+function _run!(body!, r::AbstractUnitRange, threaded)
+    n = length(r)
+    n == 0 && return nothing
+    if threaded && Threads.nthreads() > 1 && n > CHUNK
+        nchunks = cld(n, CHUNK)
+        Threads.@threads :dynamic for k in 1:nchunks
+            lo = first(r) + (k - 1) * CHUNK
+            body!(lo, min(lo + CHUNK - 1, last(r)))
         end
     else
-        body!(1, n)
+        body!(first(r), last(r))
     end
     nothing
 end
@@ -296,7 +312,10 @@ function _transform_pts!(dest, t::GeoTransformation, src, threaded)
             return dest
         end
     end
-    _run!(n, threaded) do lo, hi
+    # `eachindex`, not `1:n`: the scalar path is reached by anything that is
+    # not a dense interleaved buffer, which includes a vector that does not
+    # start at 1. Handing it `1:n` walked off the end with bounds checks off.
+    _run!(eachindex(src), threaded) do lo, hi
         _scalar_range!(dest, src, t, lo, hi)
     end
     dest
@@ -308,10 +327,12 @@ function _transform_interleaved!(Md, Ms, t, n, threaded)
     T = eltype(Ms)
     tt = adapt_eltype(t, T)
     W = lanewidth_val(T)
+    # the lane loop addresses the buffer by linear offset from 1
+    Base.require_one_based_indexing(Md, Ms)
     GC.@preserve Md Ms begin
         pd = stridedpointer(Md)
         ps = stridedpointer(Ms)
-        _run!(n, threaded) do lo, hi
+        _run!(1:n, threaded) do lo, hi
             _lane_range_aos!(pd, ps, tt, lo, hi, W, Val(UNROLL))
         end
     end
@@ -361,15 +382,16 @@ function _transform_soa!(Xd, Yd, t::GeoTransformation, Xs, Ys, threaded)
             _strideable(Xs) && _strideable(Ys) && _strideable(Xd) && _strideable(Yd)
         tt = adapt_eltype(t, T)
         W = lanewidth_val(T)
+        Base.require_one_based_indexing(Xd, Yd, Xs, Ys)
         GC.@preserve Xd Yd Xs Ys begin
             pdx = stridedpointer(Xd); pdy = stridedpointer(Yd)
             psx = stridedpointer(Xs); psy = stridedpointer(Ys)
-            _run!(n, threaded) do lo, hi
+            _run!(1:n, threaded) do lo, hi
                 _lane_range!(pdx, pdy, psx, psy, tt, lo, hi, W, Val(UNROLL))
             end
         end
     else
-        _run!(n, threaded) do lo, hi
+        _run!(eachindex(Xs), threaded) do lo, hi
             _scalar_range!(Xd, Yd, Xs, Ys, t, lo, hi)
         end
     end

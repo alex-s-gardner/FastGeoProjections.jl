@@ -25,6 +25,18 @@ GI.getcoord(::GI.PointTrait, p::MyPt, i) = i == 1 ? p.x : p.y
 # Nothing may reinterpret coordinates into this and then call an accessor.
 struct HandlePt; p::Ptr{Cvoid}; q::Ptr{Cvoid}; end
 
+# a vector whose indices do not start at 1, without an OffsetArrays dependency
+struct OffsetVec{T} <: AbstractVector{T}
+    data::Vector{T}
+    off::Int
+end
+Base.size(v::OffsetVec) = size(v.data)
+Base.axes(v::OffsetVec) = (v.off .+ (1:length(v.data)),)
+Base.IndexStyle(::Type{<:OffsetVec}) = IndexLinear()
+Base.getindex(v::OffsetVec, i::Int) = v.data[i - v.off]
+Base.setindex!(v::OffsetVec, x, i::Int) = (v.data[i - v.off] = x)
+Base.similar(v::OffsetVec, ::Type{T}) where {T} = OffsetVec(similar(v.data, T), v.off)
+
 struct FlipPt; y::Float64; x::Float64; end
 GI.isgeometry(::Type{FlipPt}) = true
 GI.geomtrait(::FlipPt) = GI.PointTrait()
@@ -499,10 +511,56 @@ end
     end
 
     @testset "the thread count does not change the answer" begin
-        for n in (1, 2, 3, 7, 8, 15, 16, 17, 1000, 1001)
+        # sizes either side of a chunk boundary, so the threaded path is
+        # actually taken rather than falling through to the single-chunk case
+        C = FastGeoProjections.CHUNK
+        for n in (1, 2, 3, 7, 8, 15, 16, 17, 1000, 1001, C, C + 1, 3C, 3C + 7)
             v = [(-72.0 + 6i / n, 40.0 + 7i / n) for i in 1:n]
             @test transform(t, v; threaded = false) == transform(t, v; threaded = true)
         end
+    end
+
+    @testset "transform is usable from inside a threaded loop" begin
+        # `@threads :static` throws when nested or concurrent, and `threaded`
+        # defaults to true whenever there is more than one thread, so this is
+        # what a caller parallelising over tiles of their own hits. Only says
+        # anything with -t2 or more; CI runs the suite threaded.
+        n = 4 * FastGeoProjections.CHUNK
+        v = [(-69.0 + 6i / n, 45.0) for i in 1:n]
+        want = transform(t, v; threaded = false)
+        out = [similar(v) for _ in 1:4]
+        Threads.@threads for k in 1:4
+            transform!(out[k], t, v)
+        end
+        @test all(o -> o == want, out)
+
+        # ...and concurrently, which is the other thing :static refuses
+        @test all(fetch.([Threads.@spawn transform(t, v) for _ in 1:4]) .== Ref(want))
+    end
+
+    @testset "a vector that does not start at 1" begin
+        # The scalar path is where such a vector lands -- `_interleaved` takes
+        # an `Array` -- and it used to be handed 1:n regardless, walking off
+        # the end with bounds checking disabled.
+        n = 1000
+        raw = [(-72.0 + 6i / n, 40.0 + 7i / n) for i in 1:n]
+        src = OffsetVec(copy(raw), -1)                 # indices 0:n-1
+        dst = OffsetVec(similar(raw), -1)
+        @test firstindex(src) == 0 && lastindex(src) == n - 1
+        # ...and it lands on the scalar path, which does not contract to FMA
+        # the way the lane path does: a couple of ulp, as for FlipPt above
+        want = transform(t, raw; threaded = false)
+        for threaded in (false, true)
+            fill!(dst.data, (0.0, 0.0))
+            transform!(dst, t, src; threaded)
+            @test approx(dst.data, want)
+        end
+        # ...and the struct-of-arrays form the same way
+        X = OffsetVec([p[1] for p in raw], -1)
+        Y = OffsetVec([p[2] for p in raw], -1)
+        Xd, Yd = transform(t, X, Y)
+        @test all(isapprox.(collect(Xd), [p[1] for p in want]; rtol = 1e-12))
+        @test all(isapprox.(collect(Yd), [p[2] for p in want]; rtol = 1e-12))
     end
 
     @testset "through a Transformation" begin
