@@ -92,6 +92,7 @@ vectorizes(::BaseKernel) = false
 @inline exp(::BaseKernel, x) = Base.exp(x)
 @inline log(::BaseKernel, x) = Base.log(x)
 @inline pow(::BaseKernel, x, y) = x^y
+@inline cbrt(::BaseKernel, x) = Base.cbrt(x)
 @inline sincos(::BaseKernel, x) = Base.sincos(x)
 @inline sinhcosh(::BaseKernel, x) = (Base.sinh(x), Base.cosh(x))
 
@@ -112,6 +113,7 @@ vectorizes(::BaseKernel) = false
 @inline exp(::SLEEFKernel, x) = SLEEFPirates.exp(x)
 @inline log(::SLEEFKernel, x) = SLEEFPirates.log(x)
 @inline pow(::SLEEFKernel, x, y) = SLEEFPirates.pow(x, y)
+@inline cbrt(::SLEEFKernel, x) = SLEEFPirates.cbrt(x)
 @inline sincos(::SLEEFKernel, x) = SLEEFPirates.sincos(x)
 @inline sinhcosh(::SLEEFKernel, x) = (SLEEFPirates.sinh(x), SLEEFPirates.cosh(x))
 
@@ -132,6 +134,7 @@ vectorizes(::BaseKernel) = false
 @inline exp(::FastKernel, x) = SLEEFPirates.exp(x)
 @inline log(::FastKernel, x) = SLEEFPirates.log_fast(x)
 @inline pow(::FastKernel, x, y) = SLEEFPirates.pow_fast(x, y)
+@inline cbrt(::FastKernel, x) = SLEEFPirates.cbrt_fast(x)
 @inline sincos(::FastKernel, x) = SLEEFPirates.sincos_fast(x)
 
 """

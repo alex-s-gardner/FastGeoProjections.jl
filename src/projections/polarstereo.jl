@@ -25,6 +25,8 @@ struct LonLatToPolarStereographic{T,K<:MathKernel} <: GeoTransformation
     pm::T         # +1 north, -1 south
     ehalf::T      # e/2, hoisted out of the pow
     d2r::T
+    s_lon_0::T    # sine and cosine of the central meridian, for the angle
+    c_lon_0::T    # subtraction a fused pipeline does in place of `sincos`
     kernel::K
 end
 
@@ -74,7 +76,8 @@ end
 # build either direction from the already-reduced parameter set, so that `inv`
 # never has to recover degrees from radians
 function _lonlat_to_ps(::Type{T}, a, e, lon_0, t_c, m_c, pm, kernel::K) where {T,K}
-    LonLatToPolarStereographic{T,K}(a, e, lon_0, t_c, m_c, pm, e / 2, pi / 180, kernel)
+    s0, c0 = sincos(lon_0)
+    LonLatToPolarStereographic{T,K}(a, e, lon_0, t_c, m_c, pm, e / 2, pi / 180, s0, c0, kernel)
 end
 
 function _ps_to_lonlat(::Type{T}, a, e, lon_0, t_c, m_c, pm, kernel::K) where {T,K}
@@ -133,6 +136,31 @@ Base.inv(p::LonLatToPolarStereographic{T}) where {T} =
     _ps_to_lonlat(T, p.a, p.e, p.lon_0, p.t_c, p.m_c, p.pm, p.kernel)
 Base.inv(p::PolarStereographicToLonLat{T}) where {T} =
     _lonlat_to_ps(T, p.a, p.e, p.lon_0, p.t_c, p.m_c, p.pm, p.kernel)
+
+# Everything this projection wants from the geodetic angles is their sines and
+# cosines, so a point arriving as a `Direction` skips both `atan`s that formed
+# them and both `sincos`es that took them apart. `tan(pi/4 - lat/2)` is the
+# half-angle identity `cos/(1 + sin)`, which in Cartesian terms is `d/(R + z)`.
+fuses_direction(::LonLatToPolarStereographic) = true
+
+@inline function project_direction(p::LonLatToPolarStereographic{T},
+                                   dir::Direction) where {T}
+    K = p.kernel
+    # `pm` flips the hemisphere, which in this form is a flip of z's sign.
+    zp = dir.z * p.pm
+    R = sqrt(dir.d * dir.d + zp * zp)
+    s = zp / R
+    t = (dir.d / (R + zp)) /
+        Math.pow(K, (1 - p.e * s) / (1 + p.e * s), p.ehalf)
+    rho = p.a * p.m_c * t / p.t_c
+    # sin and cos of (lon * pm - lon_0), by angle subtraction on the direction's
+    # own sine and cosine against the central meridian's precomputed pair.
+    slon, clon = sincos_lon(dir)
+    slon = slon * p.pm
+    sdl = slon * p.c_lon_0 - clon * p.s_lon_0
+    cdl = clon * p.c_lon_0 + slon * p.s_lon_0
+    (p.pm * rho * sdl, -p.pm * rho * cdl)
+end
 
 islanesafe(p::LonLatToPolarStereographic) = vectorizes(p.kernel)
 islanesafe(p::PolarStereographicToLonLat) = vectorizes(p.kernel)

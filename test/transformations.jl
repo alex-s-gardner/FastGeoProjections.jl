@@ -527,9 +527,19 @@ end
         # source must not reach a path that transforms only x and y.
         @test !isapprox(pj(lon, lat)[1], want[1]; atol = 1.0)
 
-        # ...while x and y alone still transform: there is no height to carry,
-        # and 2D in, 2D out is what such a pipeline is usually asked for.
-        @test all(transform(tz, [(lon, lat)])[1] .≈ pj(lon, lat))
+        # A native operator whose whole subject is the height says so rather than
+        # taking the h = 0 point: there is no height to transform in two
+        # coordinates, and no useful default for one.
+        @test_throws "would mean a height of zero" tz(lon, lat)
+        @test_throws "would mean a height of zero" transform(tz, [(lon, lat)])
+
+        # A Proj-backed pipeline that can change a height still takes x and y
+        # alone, because 2D in and 2D out is a thing Proj resolves and is what
+        # such a pipeline is usually asked for.
+        tp = Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        @test !FastGeoProjections.preservesz(tp)
+        @test all(transform(tp, [(lon, lat)])[1] .≈
+                  Proj.Transformation("EPSG:4326", "EPSG:3857"; always_xy = true)(lon, lat))
 
         # A map projection is a function of x and y, so it does preserve one.
         @test FastGeoProjections.preservesz(Transformation(EPSG(4326), EPSG(3413)))
@@ -657,7 +667,15 @@ end
                 # `always_xy` decides which way round the input is read, so
                 # feed both the same pair and let them disagree if it does
                 a, b = always_xy ? (lon, lat) : (lat, lon)
-                @test all(isapprox.(ours(a, b), pj(a, b); rtol = 1e-6))
+                # A CRS that transforms a height has none to transform from a
+                # two-coordinate call and rejects one, so it is fed three. Proj
+                # reads (lat, lon, h) in authority order just as it reads
+                # (lat, lon), so the height goes last either way.
+                if FastGeoProjections.preservesz(ours)
+                    @test all(isapprox.(ours(a, b), pj(a, b); rtol = 1e-6))
+                else
+                    @test all(isapprox.(ours(a, b, 100.0), pj(a, b, 100.0); rtol = 1e-6))
+                end
             end
         end
     end
@@ -689,5 +707,260 @@ end
         @test_throws ArgumentError transform!(t, [1, 2, 3])
         @test_throws DimensionMismatch transform!(Vector{NTuple{2,Float64}}(undef, 2),
                                                   t, mk(Tuple))
+    end
+end
+
+@testset "geocentric" begin
+    fwd = LonLatToGeocentric()
+    inverse = GeocentricToLonLat()
+    pj = Proj.Transformation("EPSG:4979", "EPSG:4978"; always_xy = true)
+
+    # Heights from below sea level to satellite altitude: the operator is used at
+    # orbit as well as on the ground, and the inverse's accuracy is the thing
+    # that varies with height.
+    cases = [(lo, la, h) for la in -85.0:17.0:85.0, lo in -175.0:35.0:175.0,
+                             h in (-500.0, 0.0, 1e3, 8e3, 7e5)]
+
+    @testset "forward agrees with Proj" begin
+        worst = 0.0
+        for (lo, la, h) in cases
+            worst = max(worst, maximum(abs.(fwd(lo, la, h) .- pj(lo, la, h))))
+        end
+        @test worst < 1e-8
+    end
+
+    @testset "the round trip closes at every height" begin
+        # Proj's own inverse is 4.0e-3 m out at 700 km, so above the troposphere
+        # the round trip rather than Proj is what pins the inverse.
+        worst_h = 0.0
+        worst_ground = 0.0
+        for (lo, la, h) in cases
+            xyz = fwd(lo, la, h)
+            back = inverse(xyz...)
+            worst_h = max(worst_h, abs(back[3] - h))
+            worst_ground = max(worst_ground, maximum(abs.(fwd(back...) .- xyz)))
+        end
+        @test worst_h < 1e-8
+        @test worst_ground < 1e-8
+    end
+
+    @testset "inverse agrees with Proj below satellite altitude" begin
+        # The round trip above cannot catch an error the two directions share --
+        # a wrong `e2` would close it perfectly -- so the inverse is compared to
+        # an independent implementation as well. Confined to heights where Proj's
+        # own inverse is trustworthy: at 700 km it is 4.0e-3 m out, which is why
+        # the round trip is what covers the rest.
+        pj_i = Proj.Transformation("EPSG:4978", "EPSG:4979"; always_xy = true)
+        worst_horiz = 0.0
+        worst_h = 0.0
+        for la in -89.0:2.0:89.0, lo in -179.0:6.0:179.0, h in (-400.0, 0.0, 3e3, 1e4)
+            xyz = pj(lo, la, h)
+            got = inverse(xyz...)
+            want = pj_i(xyz...)
+            # Angles as ground distance, which is comparable across latitudes.
+            worst_horiz = max(worst_horiz, abs(got[2] - want[2]) * 111320,
+                              abs(got[1] - want[1]) * 111320 * cosd(la))
+            worst_h = max(worst_h, abs(got[3] - want[3]))
+        end
+        @test worst_horiz < 1e-5
+        @test worst_h < 1e-5
+    end
+
+    @testset "the poles and the antimeridian" begin
+        # Where a projection breaks if it is going to. A pole has no defined
+        # longitude, so only the latitude and the height are compared there.
+        pj_i = Proj.Transformation("EPSG:4978", "EPSG:4979"; always_xy = true)
+        for (lo, la, lbl) in ((0.0, 90.0, "north pole"), (0.0, -90.0, "south pole"),
+                              (180.0, 45.0, "antimeridian"), (-180.0, 45.0, "antimeridian west"),
+                              (179.9999, 0.0, "just inside the antimeridian"),
+                              (0.0, 0.0, "origin"))
+            want = pj(lo, la, 100.0)
+            @test all(isapprox.(fwd(lo, la, 100.0), want; atol = 1e-6))
+
+            got = inverse(want...)
+            ref = pj_i(want...)
+            @test got[2] ≈ ref[2] atol = 1e-9
+            @test got[3] ≈ ref[3] atol = 1e-6
+            abs(la) > 89.999 || @test got[1] ≈ ref[1] atol = 1e-9
+        end
+    end
+
+    @testset "every kernel and precision against Proj" begin
+        # Only the default is exercised elsewhere. `FastKernel` is the default and
+        # costs about twice the error of the other two, which is the trade it
+        # exists to make; all three are far inside any tolerance that matters.
+        for (K, tol, lbl) in ((BaseKernel(), 1e-9, "Base"),
+                              (SLEEFKernel(), 1e-9, "SLEEF"),
+                              (FastKernel(), 1e-8, "Fast"))
+            f = LonLatToGeocentric(kernel = K)
+            worst = 0.0
+            for la in -85.0:5.0:85.0, lo in -175.0:15.0:175.0
+                worst = max(worst, maximum(abs.(f(lo, la, 100.0) .- pj(lo, la, 100.0))))
+            end
+            @test worst < tol
+        end
+
+        # Float32 is bounded by its own representable resolution at this
+        # magnitude -- `eps(Float32) * 6.4e6` is about 0.76 m -- not by the
+        # projection. Asserted so that the cost of asking for it is on record.
+        f32 = LonLatToGeocentric{Float32}()
+        worst32 = 0.0
+        for la in -85.0:5.0:85.0, lo in -175.0:15.0:175.0
+            worst32 = max(worst32,
+                          maximum(abs.(Float64.(f32(Float32(lo), Float32(la), 100.0f0)) .-
+                                       pj(lo, la, 100.0))))
+        end
+        @test 0.1 < worst32 < 5.0
+        @test worst32 > eps(Float32) * 6.4e6 / 2
+    end
+
+    @testset "a height is transformed, not carried" begin
+        @test !FastGeoProjections.preservesz(fwd)
+        @test !FastGeoProjections.preservesz(inverse)
+        for threaded in (false, true)
+            o = transform(fwd, [(5.39, 52.16, 100.0)]; threaded)
+            @test all(o[1] .≈ pj(5.39, 52.16, 100.0))
+            @test o[1][3] != 100.0
+        end
+    end
+
+    @testset "two coordinates are refused, not read as h = 0" begin
+        # The h = 0 point is 61 m away in x here, so there is no defensible
+        # default and the call is an error.
+        @test_throws "would mean a height of zero" fwd(5.39, 52.16)
+        @test_throws "z = 0" inverse(3.9e6, 3.7e5)
+        @test !isapprox(pj(5.39, 52.16)[1], pj(5.39, 52.16, 100.0)[1]; atol = 1.0)
+    end
+
+    @testset "inv, precision and kernel" begin
+        @test inv(fwd) isa GeocentricToLonLat
+        @test inv(inverse) isa LonLatToGeocentric
+        @test all(inv(fwd)(fwd(5.39, 52.16, 100.0)...) .≈ (5.39, 52.16, 100.0))
+
+        f32 = LonLatToGeocentric{Float32}(kernel = BaseKernel())
+        @test inv(f32) isa GeocentricToLonLat{Float32}
+        @test inv(f32).kernel isa BaseKernel
+        @test !FastGeoProjections.islanesafe(LonLatToGeocentric(kernel = BaseKernel()))
+        @test FastGeoProjections.islanesafe(fwd)
+    end
+
+    @testset "through the EPSG registry" begin
+        for (s, t) in ((4979, 4978), (4978, 4979))
+            ours = Transformation(EPSG(s), EPSG(t); always_xy = true)
+            theirs = Proj.Transformation("EPSG:$s", "EPSG:$t"; always_xy = true)
+            @test FastGeoProjections.isfastepsg(EPSG(s))
+            @test !FastGeoProjections.preservesz(ours)
+            args = s == 4979 ? (5.39, 52.16, 100.0) :
+                               (3.9036404612786868e6, 368315.27616670664, 5.013823349039822e6)
+            @test all(isapprox.(ours(args...), theirs(args...); rtol = 1e-9))
+        end
+
+        # Geocentric to a 2-D projected CRS: the height is consumed by the
+        # geocentric stage, and what reaches the projection is the geodetic
+        # (lon, lat) it implies.
+        ours = Transformation(EPSG(4978), EPSG(3413); always_xy = true)
+        theirs = Proj.Transformation("EPSG:4978", "EPSG:3413"; always_xy = true)
+        xyz = (3.9036404612786868e6, 368315.27616670664, 5.013823349039822e6)
+        @test all(isapprox.(ours(xyz...)[1:2], theirs(xyz...)[1:2]; rtol = 1e-9))
+    end
+
+    @testset "fusing the geocentric stage into the projection" begin
+        ll2xyz = Proj.Transformation("EPSG:4979", "EPSG:4978"; always_xy = true)
+
+        # The registry returns the fused operator where the projection accepts a
+        # Direction, and the plain composition where it does not.
+        @test Transformation(EPSG(4978), EPSG(3413)).f isa
+              FastGeoProjections.FusedFromGeocentric
+        @test Transformation(EPSG(4978), EPSG(32619)).f isa
+              FastGeoProjections.FusedFromGeocentric
+        # ...and geographic targets still go through the ordinary path, since
+        # there is no projection to fuse into.
+        @test !(Transformation(EPSG(4978), EPSG(4979)).f isa
+                FastGeoProjections.FusedFromGeocentric)
+
+        @testset "$lbl" for (code, proj, lbl, lons) in (
+                (3413, LonLatToPolarStereographic(; lat_ts = 70.0, lon_0 = -45.0),
+                 "polar stereographic north", -175.0:25.0:175.0),
+                (3031, LonLatToPolarStereographic(; lat_ts = -71.0, lon_0 = 0.0),
+                 "polar stereographic south", -175.0:25.0:175.0),
+                # A transverse Mercator zone is only meaningful near its own
+                # meridian; far outside it the projection diverges, composed as
+                # well as fused. So each zone is swept over its own ±18°.
+                (32601, LonLatToUTM(1, true), "UTM zone 1N",
+                 FastGeoProjections.utm_lon0(1) .+ (-18.0:6.0:18.0)),
+                (32619, LonLatToUTM(19, true), "UTM zone 19N",
+                 FastGeoProjections.utm_lon0(19) .+ (-18.0:6.0:18.0)),
+                (32631, LonLatToUTM(31, true), "UTM zone 31N",
+                 FastGeoProjections.utm_lon0(31) .+ (-18.0:6.0:18.0)),
+                (32660, LonLatToUTM(60, true), "UTM zone 60N",
+                 FastGeoProjections.utm_lon0(60) .+ (-18.0:6.0:18.0)),
+                (32701, LonLatToUTM(1, false), "UTM zone 1S",
+                 FastGeoProjections.utm_lon0(1) .+ (-18.0:6.0:18.0)),
+                (32733, LonLatToUTM(33, false), "UTM zone 33S",
+                 FastGeoProjections.utm_lon0(33) .+ (-18.0:6.0:18.0)),
+                (32760, LonLatToUTM(60, false), "UTM zone 60S",
+                 FastGeoProjections.utm_lon0(60) .+ (-18.0:6.0:18.0)))
+            fused = Transformation(EPSG(4978), EPSG(code); always_xy = true)
+            composed = proj ∘ GeocentricToLonLat()
+            pj = Proj.Transformation("EPSG:4978", "EPSG:$code"; always_xy = true)
+
+            worst_c = 0.0
+            worst_p = 0.0
+            for la in -80.0:10.0:80.0, lo in lons, h in (-200.0, 0.0, 5e3)
+                xyz = ll2xyz(lo, la, h)
+                f = fused(xyz...)
+                # The fused operator is the composition with identities applied,
+                # so it is the same function to a few ulps rather than an
+                # approximation of it.
+                worst_c = max(worst_c, maximum(abs.(f[1:2] .- composed(xyz...)[1:2])))
+                worst_p = max(worst_p, maximum(abs.(f[1:2] .- pj(xyz...)[1:2])))
+                # the height comes back from the geocentric stage either way
+                @test f[3] ≈ h atol = 1e-6
+            end
+            @test worst_c < 1e-6
+            @test worst_p < 1e-5
+        end
+
+        @testset "properties carry through the fusion" begin
+            f = Transformation(EPSG(4978), EPSG(3413); always_xy = true).f
+            @test !FastGeoProjections.preservesz(f)
+            @test FastGeoProjections.islanesafe(f)
+            @test !FastGeoProjections.islanesafe(
+                FastGeoProjections.FusedFromGeocentric(
+                    GeocentricToLonLat(kernel = BaseKernel()),
+                    LonLatToPolarStereographic(; lat_ts = 70.0, lon_0 = -45.0)))
+            # Two coordinates would mean a point on the equatorial plane.
+            @test_throws "z = 0" f(3.9e6, 3.7e5)
+            # Inverting gives the reverse pipeline, an ordinary composition:
+            # `PolarStereographicToLonLat` produces angles and `LonLatToGeocentric`
+            # consumes them, so there is no Direction to hand across. It closes
+            # the round trip, and needs the height that the forward one returned.
+            xyz = (3.9036404612786868e6, 368315.27616670664, 5.013823349039822e6)
+            @test !FastGeoProjections.preservesz(inv(f))
+            @test all(isapprox.(inv(f)(f(xyz...)...), xyz; rtol = 1e-9))
+        end
+
+        @testset "a projection that does not fuse still composes" begin
+            # The fallback forms the angles and calls the projection, so a
+            # projection that has not opted in gives the same answer.
+            @test !FastGeoProjections.fuses_direction(GeocentricToLonLat())
+            dir, h = FastGeoProjections.geocentric_direction(
+                GeocentricToLonLat(), 3.9036404612786868e6, 368315.27616670664,
+                5.013823349039822e6)
+            p = LonLatToPolarStereographic(; lat_ts = 70.0, lon_0 = -45.0)
+            @test all(FastGeoProjections.project_direction(p, dir) .≈
+                      p(FastGeoProjections.lon_degrees(dir),
+                        FastGeoProjections.lat_degrees(dir)))
+            @test h ≈ 100.0 atol = 1e-6
+        end
+    end
+
+    @testset "a non-WGS84 ellipsoid" begin
+        grs80 = LonLatToGeocentric(ellips = FastGeoProjections.ellipsoid(EPSG(7019)))
+        @test grs80.a == 6378137.0
+        # GRS 1980 and WGS 84 differ in flattening only, by 1e-11 relative in e2,
+        # so the positions differ by millimetres rather than not at all.
+        d = maximum(abs.(grs80(5.39, 52.16, 100.0) .- fwd(5.39, 52.16, 100.0)))
+        @test 0 < d < 1e-2
     end
 end

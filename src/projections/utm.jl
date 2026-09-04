@@ -101,6 +101,15 @@ UTMToLonLat{T}(epsg::EPSG; kwargs...) where {T} =
     (muladd(x, t.k0, t.fe), muladd(y, t.k0, t.fn))
 end
 
+# The scale and false origin are applied after the projection, so whatever the
+# transverse Mercator underneath can fuse, this can too.
+fuses_direction(t::LonLatToUTM) = fuses_direction(t.tm)
+
+@inline function project_direction(t::LonLatToUTM, dir::Direction)
+    x, y = project_direction(t.tm, dir)
+    (muladd(x, t.k0, t.fe), muladd(y, t.k0, t.fn))
+end
+
 @inline (t::UTMToLonLat)(x, y) =
     t.tm(muladd(x, t.inv_k0, t.dx), muladd(y, t.inv_k0, t.dy))
 

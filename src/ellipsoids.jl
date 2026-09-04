@@ -7,7 +7,10 @@ struct Ellipsoid
     a::Float64        # Semi-major axis
     b::Float64        # Semi-minor axis
     f::Float64        # Flattening
-    e::Float64        # Eccentricity 
+    e::Float64        # Eccentricity
+    e2::Float64       # Eccentricity squared, stored rather than derived: the geocentric
+                      # conversions use it directly, and f * (2 - f) keeps a bit that
+                      # squaring `e` back up loses.
     name::Union{Nothing,Symbol}      # Conventional name - for clarity, should match the name
     epsg::EPSG         # epsg code
     # of the const instance in the package!
@@ -34,8 +37,9 @@ end
 
 function _ellipsoid_ab(a::Float64, b::Float64, name, epsg)
     f = 1 - b / a
-    e = sqrt(f * (2 - f))
-    Ellipsoid(a, b, f, e, name, epsg)
+    e2 = f * (2 - f)
+    e = sqrt(e2)
+    Ellipsoid(a, b, f, e, e2, name, epsg)
 end
 function _ellipsoid_af(a::Float64, f_inv::Float64, name, epsg)
     b = a * (1 - inv(f_inv))
