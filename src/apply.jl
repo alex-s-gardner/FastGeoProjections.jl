@@ -51,30 +51,50 @@ keep it off the fast path. Defining it as `true` does nothing on its own: a
 type the probe cannot see does not store its coordinates as a dense run of
 floats, which is the layout the SIMD path addresses.
 """
-isxymajor(::Type{P}) where {P} = _pointlayout(P) !== nothing
+isxymajor(::Type{P}) where {P} = _componentval(P) !== nothing
 
-# `(T, ncomponents)` for a point type stored as `ncomponents` `T`s with x
-# first and y second, or `nothing` for anything else.
-function _pointlayout(::Type{P}) where {P}
+# `Val{T}` for the float type `P` stores its coordinates as, or `nothing`.
+#
+# A `Val` rather than the type itself, and two spelled-out branches rather
+# than a loop over `(Float64, Float32)`, so that the answer travels in the
+# type domain. Returned as an ordinary value it is a `DataType`, which leaves
+# the element type of the reinterpreted matrix unknown: a dispatch on every
+# call, and nothing below it resolvable ahead of time.
+@inline function _componentval(::Type{P}) where {P}
     isbitstype(P) || return nothing
-    for T in (Float64, Float32)
-        _isallfloat(P, T) || continue
-        n, r = divrem(sizeof(P), sizeof(T))
-        (r == 0 && n >= 2 && _probexy(P, T, Val(n))) || return nothing
-        return (T, n)
-    end
+    _qualifies(P, Float64) && return Val(Float64)
+    _qualifies(P, Float32) && return Val(Float32)
     nothing
 end
 
+@inline function _qualifies(::Type{P}, ::Type{T}) where {P,T}
+    _isallfloat(P, T) || return false
+    n, r = divrem(sizeof(P), sizeof(T))
+    r == 0 && n >= 2 && _probexy(P, T, Val(n))
+end
+
+# Number of `T`s a qualifying point type is stored as; 0 for anything else.
+@inline _ncomponents(::Type{P}) where {P} = _ncomponents(P, _componentval(P))
+@inline _ncomponents(::Type{P}, ::Nothing) where {P} = 0
+@inline _ncomponents(::Type{P}, ::Val{T}) where {P,T} = sizeof(P) ÷ sizeof(T)
+
 # Whether every field of `P` bottoms out in `T`. A field with no storage (a
 # `crs::Nothing`, say) cannot be laid out wrong, so it does not disqualify.
+#
+# The recursion walks field *indices* carried in a `Val`, not `fieldtypes(P)`:
+# a tuple of types is a tuple of `DataType` values, so walking it would leave
+# every field type unknown until run time. Here each `fieldtype(P, N)` is a
+# literal, which is what lets the predicate fold away entirely.
 _isallfloat(::Type{T}, ::Type{T}) where {T<:Union{Float32,Float64}} = true
-function _isallfloat(::Type{P}, ::Type{T}) where {P,T}
+@inline function _isallfloat(::Type{P}, ::Type{T}) where {P,T}
     sizeof(P) == 0 && return true
     isstructtype(P) || return false
-    fs = fieldtypes(P)
-    !isempty(fs) && all(F -> _isallfloat(F, T), fs)
+    n = fieldcount(P)
+    n == 0 ? false : _fieldsallfloat(P, T, Val(n))
 end
+@inline _fieldsallfloat(::Type{P}, ::Type{T}, ::Val{0}) where {P,T} = true
+@inline _fieldsallfloat(::Type{P}, ::Type{T}, ::Val{N}) where {P,T,N} =
+    _isallfloat(fieldtype(P, N), T) && _fieldsallfloat(P, T, Val(N - 1))
 
 # Sentinels rather than sampled values: a `(y, x)` type whose sampled points
 # happen to lie on `x == y` passes a comparison against its own contents, and
@@ -96,13 +116,13 @@ deinterleaves in hardware, so carrying a z around does not push a vector off
 the fast path. Whether the layout holds is a property of the element type
 alone; see [`isxymajor`](@ref).
 """
-function _interleaved(v::Array)
+@inline function _interleaved(v::Array)
     P = eltype(v)
     isxymajor(P) || return nothing
-    l = _pointlayout(P)
-    l === nothing && return nothing
-    reinterpret(reshape, l[1], v)
+    _reinterp(v, _componentval(P))
 end
+@inline _reinterp(::Array, ::Nothing) = nothing
+@inline _reinterp(v::Array, ::Val{T}) where {T} = reinterpret(reshape, T, v)
 _interleaved(::Any) = nothing
 
 # ---------------------------------------------------------------------------
@@ -150,7 +170,7 @@ isbits.
 # the destination rather than on the source, since a three-component source
 # feeding a two-component destination is allowed: the SIMD path writes rows 1
 # and 2 of each and leaves whatever else the destination has alone.
-_carriesz(::Type{P}) where {P} = (l = _pointlayout(P); l !== nothing && l[2] >= 3)
+_carriesz(::Type{P}) where {P} = _ncomponents(P) >= 3
 _carriesz(::Type{Any}) = false
 
 @inline _rebuild(::Type{P}, x, y, src, ::Val{false}) where {P} = rebuildpoint(P, x, y)
