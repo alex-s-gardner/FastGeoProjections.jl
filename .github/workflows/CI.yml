@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
+          - '1.10'
           - 'nightly'
         os:
           - ubuntu-latest
@@ -33,3 +33,6 @@ jobs:
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        env:
+          # the threading tests say nothing on a single thread
+          JULIA_NUM_THREADS: '4'

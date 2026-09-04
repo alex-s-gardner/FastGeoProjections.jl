@@ -1,106 +1,111 @@
 """
-    Transformation(source_epsg, target_epsg; threaded=true, always_xy=false, proj_only=false)
+    Transformation(source_epsg, target_epsg; always_xy=false, threaded=true, proj_only=false, T=Float64, kernel=FastKernel())
 
-Create a Transformation that is a pipeline between two known coordinate reference systems.
-Transformation implements the
+A transformation pipeline between two coordinate reference systems.
+`Transformation` implements the
 [CoordinateTransformations.jl](https://github.com/JuliaGeometry/CoordinateTransformations.jl)
-API.
+API: call an instance like a function.
 
-To do the transformation on coordinates, call an instance of this struct like a function.
-See below for an example. These functions accept either 2 numbers or two vectors of numbers.
+It is an *atomic point operator* -- `trans((x, y))` transforms one point -- and
+that same operator is what [`transform`](@ref) and [`transform!`](@ref) apply
+to whole collections, on SIMD lanes and across threads. Vector arguments are
+accepted directly for convenience:
 
-`source_crs` and `target_crs` must be an EPSG authority code (see https://epsg.io/), like 
-"EPSG:3413" or 3413::EPSG. The created pipeline will expect that the coordinates respect 
-the axis order and axis unit of the official definition (so for example, 
-for EPSG:4326, with latitude first and longitude next, in degrees). Similarly, when using 
-that syntax for a target CRS, output values will be emitted according to the official 
-definition of this CRS. This behavior can be overruled by passing `always_xy=true`.
+    trans(x, y)         # two numbers  -> (x′, y′)
+    trans((x, y))       # one point    -> (x′, y′)
+    trans(X, Y)         # two vectors  -> (X′, Y′)
+    trans(points)       # vector of points -> vector of points
 
-`threaded` turns on an off multi-threading.
+`source_epsg` and `target_epsg` are EPSG authority codes (see
+<https://epsg.io/>), given as `EPSG(3413)` or `"EPSG:3413"`.
 
-`always_xy` can optionally fix the axis orderding to x,y or lon,lat order. By default it is
-`false`, meaning the order is defined by the authority in charge of a given coordinate
-reference system, as explained in [this PROJ FAQ
-entry](https://proj.org/faq.html#why-is-the-axis-ordering-in-proj-not-consistent).
+`always_xy` fixes the axis order to x,y (lon,lat). By default it is `false`,
+meaning the order is the one defined by the authority in charge of the CRS, as
+explained in [this PROJ FAQ entry](https://proj.org/faq.html#why-is-the-axis-ordering-in-proj-not-consistent)
+-- so EPSG:4326 is latitude first.
 
+`threaded` sets the default for whole-array calls; it can be overridden per
+call with the `threaded` keyword of `transform`/`transform!`.
 
-`proj_only` can optionally only use Proj.jl for Transformations even when a 
-FastGeoProjection is available. By default Proj.jl is only used when a FastGeoProjection is 
-not avaiable 
+`proj_only` forces the use of Proj.jl even where a native FastGeoProjections
+implementation exists. By default Proj.jl is used only when there is none.
 
+`T` is the working precision and `kernel` the transcendental back-end; see
+[`FastKernel`](@ref), [`SLEEFKernel`](@ref) and [`BaseKernel`](@ref).
 
 # Examples
 ```julia
-julia> trans = Proj.Transformation("EPSG:4326", "EPSG:28992", always_xy=true)
+julia> trans = FastGeoProjections.Transformation(EPSG(4326), EPSG(3413); always_xy=true)
 Transformation
-    source: WGS 84 (with axis order normalized for visualization)
-    target: Amersfoort / RD New
+    source_epsg:    EPSG:4326
+    target_epsg:    EPSG:3413
+    threaded:       true
+    always_xy:      true
+    proj_only:      false
 
-julia> trans(5.39, 52.16)  # this is in lon,lat order, since we set always_xy to true
-(155191.3538124342, 463537.1362732911)
+julia> trans(-45.0, 70.0)
+(0.0, -2.187927649279021e6)
 ```
 """
-mutable struct Transformation <: CoordinateTransformations.Transformation
-    pj::Function
+struct Transformation{F<:GeoTransformation} <: GeoTransformation
+    f::F
+    source_epsg::EPSG
+    target_epsg::EPSG
+    always_xy::Bool
     threaded::Bool
     proj_only::Bool
 end
 
-function Transformation(
-    source_epsg::EPSG,
-    target_epsg::EPSG;
-    threaded::Bool=true,
-    always_xy::Bool=false,
-    proj_only::Bool=false
-)
-    pj = epsg2epsg(source_epsg, target_epsg; threaded, always_xy, proj_only)
-    return Transformation(pj, threaded, proj_only)
+function Transformation(source_epsg::EPSG, target_epsg::EPSG;
+                        threaded::Bool = true,
+                        always_xy::Bool = false,
+                        proj_only::Bool = false,
+                        T::Type = Float64,
+                        kernel::MathKernel = DEFAULT_KERNEL)
+    f = pipeline(source_epsg, target_epsg; always_xy, proj_only, T, kernel)
+    Transformation(f, source_epsg, target_epsg, always_xy, threaded, proj_only)
 end
 
-function Transformation(
-    source_epsg::String,
-    target_epsg::String;
-    threaded::Bool=true,
-    always_xy::Bool=false,
-    proj_only::Bool=false
-)
-    pj = epsg2epsg(EPSG(source_epsg), EPSG(target_epsg); threaded, always_xy, proj_only)
-    return Transformation(pj, threaded, proj_only)
-end
+Transformation(source_epsg::String, target_epsg::String; kwargs...) =
+    Transformation(EPSG(source_epsg), EPSG(target_epsg); kwargs...)
 
+# the pipeline is transparent: a Transformation behaves exactly as the operator
+# it wraps
+@inline (t::Transformation)(x, y) = t.f(x, y)
+islanesafe(t::Transformation) = islanesafe(t.f)
+adapt_eltype(t::Transformation, ::Type{T}) where {T} = adapt_eltype(t.f, T)
+_transform_pts!(dest, t::Transformation, src, threaded) =
+    _transform_pts!(dest, t.f, src, threaded)
+_transform_soa!(Xd, Yd, t::Transformation, Xs, Ys, threaded) =
+    _transform_soa!(Xd, Yd, t.f, Xs, Ys, threaded)
 
-function Base.show(io::IO, trans::Transformation)
-    print(
-        io,
+# Invert the pipeline rather than rebuilding one from the EPSG pair: `T` and
+# `kernel` are carried by the operator's own type and are not fields here, so
+# rebuilding silently reverted both to their defaults -- a Float32
+# transformation inverted to a Float64 one, and one built with `BaseKernel`
+# inverted to a lane-safe `FastKernel` one. Inverting the operator gives the
+# same pipeline the EPSG pair would, at the precision and kernel it was
+# built with.
+Base.inv(t::Transformation) =
+    Transformation(inv(t.f), t.target_epsg, t.source_epsg,
+                   t.always_xy, t.threaded, t.proj_only)
+
+function Base.show(io::IO, t::Transformation)
+    print(io,
         """Transformation
-            source_epsg:    $(trans.pj.source_epsg)
-            target_epsg:    $(trans.pj.target_epsg)
-            threaded:       $(trans.threaded)
-            always_xy:      $(trans.pj.always_xy)
-            proj_only:      $(trans.proj_only)
-        """,
-    )
+            source_epsg:    EPSG:$(first(t.source_epsg.val))
+            target_epsg:    EPSG:$(first(t.target_epsg.val))
+            threaded:       $(t.threaded)
+            always_xy:      $(t.always_xy)
+            proj_only:      $(t.proj_only)
+        """)
 end
 
-function Base.inv(
-    trans::Transformation;
-)
-    # swap source and target
-    return Transformation(
-        trans.pj.target_epsg,
-        trans.pj.source_epsg;
-        always_xy=trans.pj.always_xy,
-        threaded=trans.threaded,
-        proj_only=trans.proj_only
-    )
-end
+# --- whole-collection calls ------------------------------------------------
+(t::Transformation)(X::AbstractVector{<:Real}, Y::AbstractVector{<:Real}) =
+    transform(t, X, Y; threaded = t.threaded)
 
-function (trans::Transformation)(x::Real, y::Real)
-    p = trans.pj(Float64(x), Float64(y))
-    return p
-end
-
-function (trans::Transformation)(x::AbstractVector, y::AbstractVector)
-    p = trans.pj(Float64.(x), Float64.(y))
-    return p
-end
+# any vector of GeoInterface points. A `Vector{<:Real}` is itself a point, not
+# a collection of them, so it stays with the point methods above.
+(t::Transformation)(pts::AbstractVector) = transform(t, pts; threaded = t.threaded)
+@inline (t::Transformation)(p::AbstractVector{<:Real}) = t(GI.x(p), GI.y(p))

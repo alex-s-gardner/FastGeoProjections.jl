@@ -90,3 +90,5 @@ using Proj
     ## [4] make sure EPSG Type is working
     @test typeof(EPSG(3031)) <: EPSG
 end
+
+include("transformations.jl")

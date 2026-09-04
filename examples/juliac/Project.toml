@@ -1,0 +1,8 @@
+[deps]
+FastGeoProjections = "981663e8-0c94-46dd-b2cf-efc8480900ec"
+
+[sources]
+FastGeoProjections = {path = "../.."}
+
+[compat]
+julia = "1.12"

@@ -1,26 +1,30 @@
 module FastGeoProjections
     using Proj # Proj dependancy included untill package is more mature
     using GeoFormatTypes
-    using LoopVectorization
     using CoordinateTransformations
+    using VectorizationBase
+    using VectorizationBase: vload, vstore!, stridedpointer, MM
+    import GeoInterface as GI
+
+    include("kernels.jl")
+    using .Math: Math, MathKernel, FastKernel, SLEEFKernel, BaseKernel,
+                 DEFAULT_KERNEL, vectorizes
 
     include("ellipsoids.jl")
-    include("polarstereo.jl")
-    include("tranmerc.jl")
-    include("utm_ups.jl")
-    include("epsg2epsg.jl")
+    include("transformations.jl")
+    include("apply.jl")
+    include("projections/polarstereo.jl")
+    include("projections/tranmerc.jl")
+    include("projections/utm.jl")
+    include("proj.jl")
+    include("epsg.jl")
     include("coord.jl")
 
-    export Transformation
-    export inv
     export EPSG
-
-    precompile(tranmerc_fwd, (Vector{Float64}, Vector{Float64},))
-    precompile(tranmerc_fwd, (Vector{Float32}, Vector{Float32},))
-    precompile(tranmerc_inv, (Vector{Float64}, Vector{Float64},))
-    precompile(tranmerc_inv, (Vector{Float32}, Vector{Float32},))
-    precompile(polarstereo_fwd, (Vector{Float64}, Vector{Float64},))
-    precompile(polarstereo_fwd, (Vector{Float32}, Vector{Float32},))
-    precompile(polarstereo_inv, (Vector{Float64}, Vector{Float64},))
-    precompile(polarstereo_inv, (Vector{Float32}, Vector{Float32},))
+    export Transformation, transform, transform!, inv
+    export GeoTransformation
+    export LonLatToPolarStereographic, PolarStereographicToLonLat
+    export LonLatToTransverseMercator, TransverseMercatorToLonLat
+    export LonLatToUTM, UTMToLonLat, convergence_scale
+    export Math, MathKernel, BaseKernel, SLEEFKernel, FastKernel
 end
