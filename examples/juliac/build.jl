@@ -7,73 +7,58 @@
 # Options:
 #     --trim=safe          fail the build on any unresolved call (the default)
 #     --trim=unsafe-warn   report them and build anyway
-#     --output-exe PATH    where to put the binary
+#     --output-exe NAME    executable name, written next to this script
 #
-# Needs Julia 1.12 or later, and a C compiler on PATH for the final link.
+# Needs Julia 1.13 or later, and a C compiler on PATH for the final link.
 #
 # ---------------------------------------------------------------------------
-# Why LocalPreferences.toml sets HostCPUFeatures.freeze_cpu_target
+# Why 1.13 and not 1.12
 #
-# Without it this program does not trim. `--trim=safe` fails with two
-# unresolved calls:
+# `juliac` moved out of the Julia distribution and into the JuliaC package, so
+# it is a dependency of this project rather than a script under `Sys.BINDIR`.
+# That is the mechanical difference. The substantive one is that 1.13 compiles
+# task bodies that 1.12 discarded.
 #
-#     [1] feature_string()   HostCPUFeatures/src/cpu_info.jl:3   <- dlopen(libLLVM)
-#     [2] reset_features!()  HostCPUFeatures/src/cpu_info.jl:48
-#     [3] redefine()         HostCPUFeatures/src/HostCPUFeatures.jl:62
-#     [4] __init__()         HostCPUFeatures/src/HostCPUFeatures.jl:95
+# A task's function is stored in the task object by `jl_new_task` and invoked
+# later by the scheduler, in C. There is no Julia call site to it, so a
+# reachability walk over the visible call graph never reaches it. On 1.12 the
+# body is left out of the image and the program dies at run time with a
+# `MethodError` -- and because there is no unresolved *call site*, `--trim=safe`
+# reports zero errors and links happily. It is the one failure mode trimming
+# does not catch.
 #
-# `HostCPUFeatures.__init__` calls `redefine()` when the CPU name it saw at
-# precompile time differs from the one it sees at run time, and that reaches a
-# `dlopen` of libLLVM to read `LLVMGetHostCPUFeatures`. The verifier cannot
-# prove the branch is dead, so it follows it. `--trim=unsafe-warn` reports the
-# two and links anyway, which is easy to mistake for success: any verifier
-# error means the program did not trim.
+# 1.13 roots lowering-generated closures used as task bodies, which covers
+# `Threads.@threads`, `Threads.@spawn` and a hand-written `Task(() -> ...)`
+# alike. So `transform!(...; threaded = true)` works here, where on 1.12 it
+# needed `Base.Experimental.entrypoint` on a named callable struct -- the only
+# shape 1.13 does *not* root for you.
 #
-# Nothing here uses HostCPUFeatures. It arrives through VectorizationBase --
-# the only package in the manifest that depends on it -- which FastGeoProjections
-# uses for `vload`/`vstore!`/`stridedpointer`/`MM`/`mask`, and which
-# SLEEFPirates depends on in turn. Its one job in that chain is to work out the
-# vector register width at load time.
-#
-# `__init__` returns early when `freeze_cpu_target` is set, and that is a
-# `const` read from a Preference, so setting it makes the whole path
-# statically dead:
-#
-#     [HostCPUFeatures]
-#     freeze_cpu_target = true
-#
-# For an ahead-of-time build this is the honest setting rather than a dodge.
-# juliac already compiles with `-C native`, so the vector width is baked into
-# the emitted lane loops; a binary that discovered a wider register at startup
-# could not use it. HostCPUFeatures is a direct dependency of this project for
-# no other reason: Preferences are only applied to direct dependencies, and as
-# a transitive one the setting is read and ignored.
-#
-# Measured on aarch64, building both ways and diffing: `pick_vector_width` is
-# unchanged at 2 x Float64 / 4 x Float32, output is byte-identical, and 1e6
-# points take 0.18 s either way. On x86 the setting freezes an
-# *under-approximation* of the CPU features, so check
-# `VectorizationBase.pick_vector_width` there before trusting it.
-#
-# Removing the dependency outright would mean replacing VectorizationBase's
-# lane primitives and SLEEFPirates' kernels both -- the whole vectorization
-# layer -- which is a much larger question than this example.
+# Moving to 1.13 also retired a workaround this example used to need.
+# `HostCPUFeatures.__init__` reaches a `dlopen` of libLLVM to read the host CPU
+# feature string, which 1.12's verifier could not resolve; the fix was to set
+# that package's `freeze_cpu_target` preference, which made the branch
+# statically dead, and to depend on it directly since Preferences apply only to
+# direct dependencies. On 1.13 the build is clean without any of it, verified
+# from a cleared cache with the preference reading `false`.
 # ---------------------------------------------------------------------------
+
+# Checked before instantiating: on an older Julia the resolve fails first, with
+# a precompile error that says nothing about the actual problem.
+VERSION >= v"1.13.0-" ||
+    error("""
+          Ahead-of-time compilation here needs Julia 1.13 or later; this is $VERSION.
+          On 1.12 the build runs but the threaded transform is left out of the
+          image, and `--trim=safe` does not report it. See the comment at the
+          top of this file.
+          """)
 
 using Pkg
 Pkg.instantiate()
 
 const HERE = @__DIR__
-const JULIAC = joinpath(Sys.BINDIR, Base.DATAROOTDIR, "julia", "juliac", "juliac.jl")
-
-isfile(JULIAC) ||
-    error("""
-          juliac.jl is not at $JULIAC.
-          Ahead-of-time compilation needs Julia 1.12 or later; this is $VERSION.
-          """)
 
 trim = "safe"
-out = joinpath(HERE, "fastgeoproj")
+out = "fastgeoproj"
 i = 1
 while i <= length(ARGS)
     a = ARGS[i]
@@ -89,10 +74,12 @@ while i <= length(ARGS)
     global i = i + 1
 end
 
-cmd = `$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$HERE
-       $JULIAC --output-exe $out --experimental --trim=$trim
-       $(joinpath(HERE, "fastgeoproj.jl"))`
+# `--output-exe` takes a bare name and writes it to the working directory, so
+# the build runs in this one.
+cmd = Cmd(`$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$HERE
+           -m JuliaC --project $HERE --output-exe $out
+           --experimental --trim=$trim fastgeoproj.jl`; dir = HERE)
 
 @info "building" out trim
 run(cmd)
-@info "built" out size = Base.format_bytes(filesize(out))
+@info "built" out size = Base.format_bytes(filesize(joinpath(HERE, out)))

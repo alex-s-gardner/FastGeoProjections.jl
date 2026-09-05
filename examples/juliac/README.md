@@ -4,6 +4,14 @@ A worked example of compiling FastGeoProjections ahead of time with
 [`juliac`](https://github.com/JuliaLang/julia/tree/master/contrib/juliac) into
 an executable with no Julia startup and no compilation at run time.
 
+> **Julia 1.13 or later.** `juliac` now ships as the [JuliaC
+> package](https://github.com/JuliaLang/JuliaC.jl) rather than as part of the
+> distribution, so it is a dependency of this project. More to the point, 1.13
+> is the first version that keeps task bodies in a trimmed image, which makes it
+> the first version where the threaded transform survives. On 1.12 the build
+> succeeds, reports zero errors, and the binary dies at run time — see [what
+> trimming does and does not reach](#what-trimming-does-and-does-not-reach).
+
 ```console
 $ ./fastgeoproj --input sample.csv --from 4326 --to 32619 --always-xy
 500000.0,4.982950400226553e6
@@ -19,7 +27,7 @@ all accepted. Anything else is an error naming the line.
 
 ## Build
 
-Needs **Julia 1.12 or later** and a C compiler on `PATH` for the final link.
+Needs **Julia 1.13 or later** and a C compiler on `PATH` for the final link.
 
 ```console
 $ julia --project=examples/juliac examples/juliac/build.jl
@@ -95,32 +103,41 @@ keeps the whole array path reachable ahead of time: returning the float type as
 an ordinary value leaves `_transform_interleaved!` unresolved for every
 operator, which is 40 verifier errors and no trimmed binary.
 
-## What does not survive trimming
+## What trimming does and does not reach
 
 The build defaults to `--trim=safe`, which fails on any unresolved call. Any
 verifier error means the program did not trim, whatever `--trim=unsafe-warn`
 may go on to link.
 
-**A preference is needed to get there.** `HostCPUFeatures.__init__` reaches a
-`dlopen` of LLVM to read the host's CPU feature string, which the verifier
-cannot resolve; nothing here uses that package, it arrives through
-VectorizationBase. `LocalPreferences.toml` sets its `freeze_cpu_target`, which
-makes the path statically dead — `build.jl` explains why in full, including
-why HostCPUFeatures has to be a direct dependency for the setting to apply.
+**Threads work here, and did not on 1.12.** A task's function is stored in the
+task object by `jl_new_task` and invoked later by the scheduler, from C. No
+Julia call site refers to it — the optimized IR of a function that spawns work
+contains `jl_new_task`, `enq_work` and `_wait`, and no edge to the body at all
+— so a reachability walk over the visible call graph never finds it. On 1.12
+the body was left out of the image and the loop died with a `MethodError` on
+the first chunk.
 
-**Threads.** `Threads.@threads` does not work in a trimmed binary: the task
-bodies it creates are reached only through the scheduler, so they are not in
-the image and the loop dies with a `MethodError` on the first chunk. This is a
-`juliac` limitation, not a FastGeoProjections one — a six-line program that
-fills an array in parallel fails the same way. So `reproject!` passes
-`threaded = false`.
+That is the one failure trimming will not warn you about. There is no
+unresolved *call site*, because there is no call site, so `--trim=safe` reports
+zero errors and links a binary that cannot run its own threaded loop. The
+verifier sees Julia; it cannot see through C.
 
-That costs less than it sounds like: see below. If you do want it, the pattern
-that works is an explicit `Task` over a *named* callable struct plus
-`Base.Experimental.entrypoint(Tuple{YourJobType})`, which gives the trimmer
-something to anchor on. Keep the struct monomorphic (dispatch the projection
-*inside* the task, not by parameterizing the job) so one declaration covers
-every CRS pair.
+1.13 roots lowering-generated closures used as task bodies. That covers
+`Threads.@threads`, `Threads.@spawn`, `StableTasks.@spawn` and a plain
+`Task(() -> ...)` alike — they all hand `Task` a closure, and which macro built
+it makes no difference. The exception is a *named* callable struct passed
+straight to `Task`, which is rooted only if you declare
+`Base.Experimental.entrypoint(Tuple{YourJobType})` yourself. That declaration is
+also the only thing that worked on 1.12, where nothing was rooted automatically;
+keep such a struct monomorphic (dispatch the projection *inside* the task rather
+than parameterizing the job) so one declaration covers every CRS pair.
+
+**One workaround this example no longer needs.** On 1.12 the build could not
+resolve a `dlopen` of libLLVM inside `HostCPUFeatures.__init__`, reached through
+VectorizationBase, and the fix was a `freeze_cpu_target` preference plus a
+direct dependency to make that preference apply. On 1.13 the build is clean
+without any of it. `build.jl` records what it was, since the shape of the
+problem outlives this instance of it.
 
 **Relocatability.** The binary links only `libjulia`, but `libproj_jll`
 `dlopen`s its library from an absolute path in the Julia depot at startup. It runs anywhere that depot is; it is not a copy-anywhere artifact.
@@ -128,7 +145,7 @@ Shipping one would mean bundling those with `--relative-rpath`.
 
 ## Numbers
 
-Measured on an M4 Pro, 1,000,000 random points, Julia 1.12.7.
+Measured on an M4 Pro, 1,000,000 random points, Julia 1.13.0-rc4.
 
 **Agreement with Proj**, over grids covering each projection's domain — the
 polar caps at 1° of latitude by 5° of longitude, each UTM zone at ±3° of its
@@ -159,19 +176,35 @@ Startup, on a one-line file, is 30 ms. The same script run through `julia`
 instead of compiled takes 14.4 s for the same work, essentially all of it
 package loading and JIT.
 
+**Threads.** A trimmed binary reads `JULIA_NUM_THREADS` as usual and defaults to
+one, so the threading is there to be asked for. End to end it is close to
+invisible — 0.20 s on one thread against 0.17 s on eight, most of that spread
+being run-to-run noise — because only the transform is threaded and the
+transform is 5% of the run. In isolation it scales properly:
+
+| threads | `transform!`, 1e6 points | |
+| --- | --- | --- |
+| 1 | 8.0 ms | |
+| 2 | 4.9 ms | 1.7× |
+| 4 | 2.3 ms | 3.5× |
+| 8 | 1.6 ms | 5.1× |
+
+Output is byte-identical at every thread count, and identical to what the 1.12
+single-threaded build produced.
+
 **Where the time goes**, in process, 1M points:
 
 | phase | ms |
 | --- | --- |
 | read the file | 8 |
 | parse text → `Float64` | 76 |
-| **transform** | **7** |
+| **transform** | **8** |
 | format `Float64` → text and write | 44 |
 
 The projection is 5% of the run, and was 9% before the polar stereographic
-forward traded its `pow` for a series (14 ms to 7 ms on the same points).
-Turning text into floats and back is the expensive half of a CSV tool, which is
-why the writer goes straight to a byte buffer with `Ryu.writeshortest` (about
-4× an `IOBuffer` a field at a time, same shortest-round-trip digits) — and why
-threading the transform, if it were available, would buy under 10% end to
-end.
+forward traded its `pow` for a series — 14.2 ms against 7.4 ms measured back to
+back on 1.12, where the change landed. Turning text into floats and back is the
+expensive half of a CSV tool, which is why the writer goes straight to a byte
+buffer with `Ryu.writeshortest` (about 4× an `IOBuffer` a field at a time, same
+shortest-round-trip digits) — and why threading the transform, now that it
+survives trimming, still buys under 5% end to end.
