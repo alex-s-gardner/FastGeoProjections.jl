@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Native-Julia coordinate transformations between EPSG-coded CRSs, faster than Proj for the
 projections it implements and delegating to `Proj.jl` for everything else. Not a Proj replacement:
-`fast_epsg_codes` in `src/epsg.jl` is the whole native set — 3031, 3413, 4326, 4978, 4979, plus UTM
-326XX/327XX.
+`fast_epsg_codes` in `src/epsg.jl` is the whole native set — 3031, 3413, 3857, 4326, 4978, 4979, plus
+UTM 326XX/327XX.
 
 Accuracy is defined against Proj. Every native projection is asserted against it in the test suite,
 to 5.5e-9 m for UTM, ~2e-9 m for the geocentric conversions, and 2.4e-8 m for the polar
@@ -96,6 +96,8 @@ Measured on aarch64 (M-series), 1 thread, 100k points, out of place:
 
 | pipeline | ns/point |
 |---|---|
+| 4326→3857 web Mercator | ~12 |
+| 3857→4326 web Mercator, inverse | ~7 |
 | 4326→3413 polar stereographic | ~10 |
 | 3413→4326 polar stereographic, inverse | ~19 |
 | 4326→32619 UTM | ~48 |

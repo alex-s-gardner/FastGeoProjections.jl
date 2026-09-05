@@ -505,7 +505,10 @@ end
         # safe goes there whatever the point type: `BaseKernel` does not
         # vectorize, and neither does anything backed by Proj.
         tb = LonLatToUTM(19, true; kernel = BaseKernel())
-        tp = Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        # EPSG:3395 is true ellipsoidal Mercator, which the package does not implement --
+        # unlike EPSG:3857, which applies the spherical form to a geodetic latitude and is
+        # native. So this one really is Proj-backed.
+        tp = Transformation(EPSG(4326), EPSG(3395); always_xy = true)
         @test !FastGeoProjections.islanesafe(tb)
         @test !FastGeoProjections.islanesafe(tp)
         for ts in (tb, tp)
@@ -557,10 +560,10 @@ end
         # A Proj-backed pipeline that can change a height still takes x and y
         # alone, because 2D in and 2D out is a thing Proj resolves and is what
         # such a pipeline is usually asked for.
-        tp = Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        tp = Transformation(EPSG(4326), EPSG(3395); always_xy = true)
         @test !FastGeoProjections.preservesz(tp)
         @test all(transform(tp, [(lon, lat)])[1] .≈
-                  Proj.Transformation("EPSG:4326", "EPSG:3857"; always_xy = true)(lon, lat))
+                  Proj.Transformation("EPSG:4326", "EPSG:3395"; always_xy = true)(lon, lat))
 
         # A map projection is a function of x and y, so it does preserve one.
         @test FastGeoProjections.preservesz(Transformation(EPSG(4326), EPSG(3413)))
@@ -645,7 +648,7 @@ end
         @test !FastGeoProjections.islanesafe(inv(tb))
 
         # ...and it is still the inverse, for a native pair and a Proj-backed one
-        for pair in ((4326, 32619), (4326, 3857))
+        for pair in ((4326, 32619), (4326, 3395))
             tt = FastGeoProjections.Transformation(EPSG(pair[1]), EPSG(pair[2]);
                                                    always_xy = true)
             @test all(isapprox.(inv(tt)(tt(-69.0, 45.0)...), (-69.0, 45.0); atol = 1e-9))
@@ -703,8 +706,10 @@ end
 
     @testset "the Proj pool is checked out, not indexed" begin
         # More concurrent tasks than the pool holds, so checkout has to block
-        # and recycle rather than hand two tasks the same PJ.
-        tp = FastGeoProjections.Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+        # and recycle rather than hand two tasks the same PJ. Needs a genuinely
+        # Proj-backed pair, or there is no pool to exercise.
+        tp = FastGeoProjections.Transformation(EPSG(4326), EPSG(3395); always_xy = true)
+        @test tp.f isa FastGeoProjections.ProjTransformation
         n = 20_000
         v = [(-69.0 + 1e-4i, 45.0) for i in 1:n]
         want = transform(tp, v; threaded = false)
@@ -1042,6 +1047,92 @@ end
                 worst = max(worst, maximum(abs, t(x, y) .- base(x, y)))
             end
             @test worst * 111320 < 1e-8
+        end
+    end
+end
+
+@testset "web Mercator" begin
+    # EPSG:3857 applies spherical Mercator to the *geodetic* latitude, which is the
+    # authority's definition rather than an approximation of it. Reading the same numbers
+    # as true ellipsoidal Mercator would put a point kilometres out, so agreement with
+    # Proj is the whole specification here.
+    fwd = Transformation(EPSG(4326), EPSG(3857); always_xy = true)
+    rev = Transformation(EPSG(3857), EPSG(4326); always_xy = true)
+    pj_f = Proj.Transformation("EPSG:4326", "EPSG:3857"; always_xy = true)
+    pj_r = Proj.Transformation("EPSG:3857", "EPSG:4326"; always_xy = true)
+
+    @testset "against Proj" begin
+        worst_f = 0.0
+        worst_r = 0.0
+        for lon in -180.0:5.0:180.0, lat in -85.0:2.5:85.0
+            x, y = fwd(lon, lat)
+            px, py = pj_f(lon, lat)
+            worst_f = max(worst_f, abs(x - px), abs(y - py))
+            lo, la = rev(px, py)
+            qlo, qla = pj_r(px, py)
+            # Longitude is circular, so ±180 is one meridian rather than two.
+            dlon = abs(lo - qlo)
+            worst_r = max(worst_r, min(dlon, 360 - dlon), abs(la - qla))
+        end
+        @test worst_f < 1e-7
+        @test worst_r < 1e-12
+    end
+
+    @testset "the tile boundary is exact" begin
+        # The latitude web maps clip at, where y is the half-circumference. A projection
+        # that reached it by a series rather than in closed form would not land on it.
+        x, y = fwd(180.0, 85.05112877980659)
+        @test x ≈ 20037508.342789244 rtol = 1e-14
+        @test y ≈ 20037508.342789244 rtol = 1e-14
+        @test fwd(0.0, 0.0) === (0.0, 0.0)
+    end
+
+    @testset "round trip closes" begin
+        worst = 0.0
+        for lon in -179.0:7.0:179.0, lat in -85.0:5.0:85.0
+            lo, la = rev(fwd(lon, lat)...)
+            worst = max(worst, abs(lo - lon), abs(la - lat))
+        end
+        # Degrees; 1e-13° is about 1e-8 m of ground distance.
+        @test worst < 1e-12
+    end
+
+    @testset "operators invert and adapt" begin
+        f = LonLatToWebMercator()
+        @test inv(f) isa WebMercatorToLonLat
+        @test inv(inv(f)) isa LonLatToWebMercator
+        # `inv` must recover the same sphere rather than reverting to a default.
+        @test inv(inv(f))(-45.0, 70.0) === f(-45.0, 70.0)
+        @test FastGeoProjections.islanesafe(f)
+        @test FastGeoProjections.preservesz(f)
+        g = FastGeoProjections.adapt_eltype(f, Float32)
+        @test g isa LonLatToWebMercator{Float32}
+        @test FastGeoProjections.adapt_eltype(f, Float64) === f
+    end
+
+    @testset "every kernel agrees" begin
+        base = LonLatToWebMercator(kernel = BaseKernel())
+        for K in (FastKernel(), SLEEFKernel())
+            t = LonLatToWebMercator(kernel = K)
+            worst = 0.0
+            for lon in -180.0:15.0:180.0, lat in -85.0:5.0:85.0
+                worst = max(worst, maximum(abs, t(lon, lat) .- base(lon, lat)))
+            end
+            @test worst < 1e-7
+        end
+    end
+
+    @testset "composes with the other projections" begin
+        # Web Mercator is projected, so it sits on the x,y side of a pipeline; a composition
+        # through EPSG:4326 must still agree with Proj resolving the same pair directly.
+        for (a, b) in ((3857, 3413), (3413, 3857), (3857, 32619), (32619, 3857))
+            ours = Transformation(EPSG(a), EPSG(b); always_xy = true)
+            pj = Proj.Transformation("EPSG:$a", "EPSG:$b"; always_xy = true)
+            src = Transformation(EPSG(4326), EPSG(a); always_xy = true)
+            for (lon, lat) in ((-45.0, 70.0), (-69.0, 45.0), (10.0, -30.0))
+                x, y = src(lon, lat)
+                @test all(isapprox.(ours(x, y), pj(x, y); rtol = 1e-9))
+            end
         end
     end
 end
