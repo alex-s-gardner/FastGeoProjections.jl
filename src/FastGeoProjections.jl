@@ -17,6 +17,7 @@ module FastGeoProjections
     include("projections/polarstereo.jl")
     include("projections/tranmerc.jl")
     include("projections/utm.jl")
+    include("projections/webmercator.jl")
     include("projections/geocentric.jl")
     include("projections/fuse.jl")
     include("proj.jl")
@@ -30,6 +31,7 @@ module FastGeoProjections
     export LonLatToPolarStereographic, PolarStereographicToLonLat
     export LonLatToTransverseMercator, TransverseMercatorToLonLat
     export LonLatToUTM, UTMToLonLat, convergence_scale
+    export LonLatToWebMercator, WebMercatorToLonLat
     export LonLatToGeocentric, GeocentricToLonLat
     export Math, MathKernel, BaseKernel, SLEEFKernel, FastKernel
 end

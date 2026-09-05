@@ -20,6 +20,8 @@ function project_to_4326(epsg::EPSG; T::Type = Float64, kernel::MathKernel = DEF
         PolarStereographicToLonLat{T}(; lat_ts = -71.0, lon_0 = 0.0, kernel)
     elseif code == 3413
         PolarStereographicToLonLat{T}(; lat_ts = 70.0, lon_0 = -45.0, kernel)
+    elseif code == 3857
+        WebMercatorToLonLat{T}(; kernel)
     elseif code == 4978
         GeocentricToLonLat{T}(; kernel)
     elseif code == 4979
@@ -45,6 +47,8 @@ function project_from_4326(epsg::EPSG; T::Type = Float64, kernel::MathKernel = D
         LonLatToPolarStereographic{T}(; lat_ts = -71.0, lon_0 = 0.0, kernel)
     elseif code == 3413
         LonLatToPolarStereographic{T}(; lat_ts = 70.0, lon_0 = -45.0, kernel)
+    elseif code == 3857
+        LonLatToWebMercator{T}(; kernel)
     elseif code == 4978
         LonLatToGeocentric{T}(; kernel)
     elseif code == 4979
@@ -68,7 +72,7 @@ than three -- a CRS added here but not classified in [`isgeographic`](@ref)
 fails the suite instead of quietly returning x and y the wrong way round, and
 one added here without a projection in [`project_to_4326`](@ref) fails too.
 """
-const fast_epsg_codes = (3031, 3413, 4326, 4978, 4979)
+const fast_epsg_codes = (3031, 3413, 3857, 4326, 4978, 4979)
 
 """
     fast_epsgs

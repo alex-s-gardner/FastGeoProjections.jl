@@ -5,6 +5,7 @@
 *Supported Projection EPSGs*
 - 3031:     WGS 84 / Antarctic Polar Stereographic
 - 3413:     WGS 84 / NSIDC Sea Ice Polar Stereographic North
+- 3857:     WGS 84 / Pseudo-Mercator (web Mercator)
 - 4326:     WGS84 - World Geodetic System 1984
 - 4978:     WGS 84 geocentric Cartesian (x, y, z)
 - 4979:     WGS 84 geographic 3D (lon, lat, height)
