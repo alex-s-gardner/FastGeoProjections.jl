@@ -10,7 +10,10 @@ projections it implements and delegating to `Proj.jl` for everything else. Not a
 326XX/327XX.
 
 Accuracy is defined against Proj. Every native projection is asserted against it in the test suite,
-to 5.5e-9 m for UTM and ~2e-9 m for the geocentric conversions.
+to 5.5e-9 m for UTM, ~2e-9 m for the geocentric conversions, and 2.4e-8 m for the polar
+stereographic inverse — the least accurate of them, and the one place where the limit is a
+truncated series rather than the last bits of a transcendental. See
+[`PolarStereographicToLonLat`](@ref) on why it stops where it does.
 
 ## Commands
 
@@ -94,8 +97,12 @@ Measured on aarch64 (M-series), 1 thread, 100k points, out of place:
 | pipeline | ns/point |
 |---|---|
 | 4326→3413 polar stereographic | ~10 |
+| 3413→4326 polar stereographic, inverse | ~19 |
 | 4326→32619 UTM | ~48 |
 | 4978→3413 fused geocentric | ~34 |
+
+The inverse costs twice the forward because the conformal→geodetic series is five
+`Math.sin` calls against the forward's one `Math.conformal_ratio`.
 
 Two things to know before optimizing:
 

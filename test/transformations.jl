@@ -985,3 +985,63 @@ end
         @test 0 < d < 1e-2
     end
 end
+
+@testset "polar stereographic inverse accuracy" begin
+    # The conformal -> geodetic series is the least accurate part of any native
+    # pipeline, so it gets its own bound rather than riding on the 1e-6 the
+    # operator tests use -- that one is loose enough to pass a series two orders
+    # of magnitude worse, which is how a truncated one went unnoticed.
+    #
+    # Bounds are absolute metres of ground distance. A degree of latitude is
+    # ~111 km, so the comparison is scaled by that rather than left in degrees.
+    @testset "EPSG:$code" for (code, lat_ts, lon_0, ymin, ymax) in
+            ((3413, 70.0, -45.0, -2.6e6, -1.4e6), (3031, -71.0, 0.0, 1.4e6, 2.6e6))
+        t = PolarStereographicToLonLat(; lat_ts, lon_0)
+        pj = Proj.Transformation("EPSG:$code", "EPSG:4326"; always_xy = true)
+        worst = 0.0
+        for x in range(-3.0e5, 3.0e5; length = 40), y in range(ymin, ymax; length = 40)
+            got, want = t(x, y), pj(x, y)
+            worst = max(worst, abs(got[1] - want[1]), abs(got[2] - want[2]))
+        end
+        @test worst * 111320 < 1e-7
+    end
+
+    @testset "round trip closes" begin
+        fwd = LonLatToPolarStereographic(; lat_ts = 70.0, lon_0 = -45.0)
+        rev = PolarStereographicToLonLat(; lat_ts = 70.0, lon_0 = -45.0)
+        worst = 0.0
+        for lon in range(-179.0, 179.0; length = 40), lat in range(30.0, 89.5; length = 40)
+            x, y = fwd(lon, lat)
+            lo, la = rev(x, y)
+            worst = max(worst, abs(lo - lon), abs(la - lat))
+        end
+        @test worst * 111320 < 1e-7
+    end
+
+    @testset "the pole is a point, not a NaN" begin
+        # The origin is the pole. A Newton solve on the exact relation would form
+        # `(1 - t^2)/(2t)` here and return NaN; the series is defined at t = 0,
+        # which is why it is the one used. Polar stereographic data sits here.
+        rev = PolarStereographicToLonLat(; lat_ts = 70.0, lon_0 = -45.0)
+        @test rev(0.0, 0.0) == (-45.0, 90.0)
+        @test all(isfinite, rev(1e-9, 1e-9))
+        south = PolarStereographicToLonLat(; lat_ts = -71.0, lon_0 = 0.0)
+        @test south(0.0, 0.0) == (0.0, -90.0)
+    end
+
+    @testset "every kernel agrees" begin
+        # The series is plain arithmetic, so the back-end changes nothing here.
+        # A difference would mean a transcendental is being asked for accuracy it
+        # does not have, rather than the series being the limit.
+        args = (; lat_ts = 70.0, lon_0 = -45.0)
+        base = PolarStereographicToLonLat(; args..., kernel = BaseKernel())
+        for K in (FastKernel(), SLEEFKernel())
+            t = PolarStereographicToLonLat(; args..., kernel = K)
+            worst = 0.0
+            for x in range(-3.0e5, 3.0e5; length = 30), y in range(-2.6e6, -1.4e6; length = 30)
+                worst = max(worst, maximum(abs, t(x, y) .- base(x, y)))
+            end
+            @test worst * 111320 < 1e-8
+        end
+    end
+end
