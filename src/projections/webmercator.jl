@@ -95,6 +95,20 @@ end
      (2 * Math.atan(K, Math.exp(K, y * t.inv_r)) - T(pi / 2)) * t.r2d)
 end
 
+# The northing is `R * asinh(tan(φ))`, and `tan(φ)` is `z / d` -- which is what a
+# `Direction` already carries. So a point arriving from a geocentric conversion skips
+# the `atan` that formed the latitude and the `tan` that would take it apart again,
+# leaving the `asinh` to work on the quotient directly. The easting still needs the
+# longitude as an angle rather than as a sine and cosine, since it *is* the angle
+# scaled; `lon_degrees` forms that one `atan`, as transverse Mercator does for the
+# same reason.
+fuses_direction(::LonLatToWebMercator) = true
+
+@inline function project_direction(t::LonLatToWebMercator{T}, dir::Direction) where {T}
+    K = t.kernel
+    (t.r * (lon_degrees(dir) * t.d2r), t.r * Math.asinh(K, dir.z / dir.d))
+end
+
 Base.inv(t::LonLatToWebMercator{T}) where {T} = _webmerc_to_lonlat(T, t.r, t.kernel)
 Base.inv(t::WebMercatorToLonLat{T}) where {T} = _lonlat_to_webmerc(T, 1 / t.inv_r, t.kernel)
 

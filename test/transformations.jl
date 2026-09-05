@@ -1128,6 +1128,43 @@ end
         end
     end
 
+    @testset "fuses from geocentric" begin
+        # `y` is `R * asinh(tan(lat))`, and a `Direction` carries `z / d`, which is that
+        # tangent -- so a point arriving from a geocentric conversion forms neither the
+        # latitude nor its tangent. The fused pipeline must agree with the composition it
+        # replaces, since that is the only thing that makes the substitution invisible.
+        K = FastKernel()
+        fused = FastGeoProjections.pipeline(EPSG(4978), EPSG(3857); always_xy = true,
+                                           proj_only = false, T = Float64, kernel = K)
+        @test fused isa FastGeoProjections.FusedFromGeocentric
+        @test FastGeoProjections.fuses_direction(LonLatToWebMercator())
+
+        unfused = FastGeoProjections.ComposedGeoTransformation(
+            (GeocentricToLonLat(; kernel = K), LonLatToWebMercator(; kernel = K)))
+        g = LonLatToGeocentric()
+        worst = 0.0
+        for lon in -179.0:11.0:179.0, lat in -84.0:6.0:84.0, h in (0.0, 1000.0)
+            p = g(lon, lat, h)
+            a = fused(p...)
+            b = unfused(p...)
+            worst = max(worst, abs(a[1] - b[1]), abs(a[2] - b[2]))
+        end
+        @test worst < 1e-7
+
+        # And against Proj at the surface, where Proj's own geocentric inverse is
+        # accurate. It loses 4.7e-3 m by 700 km, which is why the bound above is against
+        # the composition rather than against Proj.
+        pj = Proj.Transformation("EPSG:4978", "EPSG:3857"; always_xy = true)
+        worst_pj = 0.0
+        for lon in -179.0:23.0:179.0, lat in -84.0:12.0:84.0
+            p = g(lon, lat, 0.0)
+            a = fused(p...)
+            c = pj(p...)
+            worst_pj = max(worst_pj, abs(a[1] - c[1]), abs(a[2] - c[2]))
+        end
+        @test worst_pj < 1e-7
+    end
+
     @testset "composes with the other projections" begin
         # Web Mercator is projected, so it sits on the x,y side of a pipeline; a composition
         # through EPSG:4326 must still agree with Proj resolving the same pair directly.

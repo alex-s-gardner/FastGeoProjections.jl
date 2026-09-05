@@ -102,6 +102,7 @@ Measured on aarch64 (M-series), 1 thread, 100k points, out of place:
 | 3413→4326 polar stereographic, inverse | ~19 |
 | 4326→32619 UTM | ~48 |
 | 4978→3413 fused geocentric | ~34 |
+| 4978→3857 fused geocentric | ~69 |
 
 The inverse costs twice the forward because the conformal→geodetic series is five
 `Math.sin` calls against the forward's one `Math.conformal_ratio`.
