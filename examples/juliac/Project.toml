@@ -1,5 +1,6 @@
 [deps]
 FastGeoProjections = "981663e8-0c94-46dd-b2cf-efc8480900ec"
+HostCPUFeatures = "3e5b6fbb-0976-4d2c-9146-d79de83f2fb0"
 
 [sources]
 FastGeoProjections = {path = "../.."}

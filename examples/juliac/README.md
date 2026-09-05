@@ -88,17 +88,20 @@ than from a vector's contents, and the answer is a `Val{T}` rather than a
 is a package-side concern rather than something this app does, but it is what
 keeps the whole array path reachable ahead of time: returning the float type as
 an ordinary value leaves `_transform_interleaved!` unresolved for every
-operator, which is 40 verifier errors rather than the 2 below.
+operator, which is 40 verifier errors and no trimmed binary.
 
 ## What does not survive trimming
 
-**Two verifier errors, always.** Both come from `HostCPUFeatures.__init__`,
-which `dlopen`s LLVM at load time to read the host's CPU feature string. It is
-a transitive dependency of VectorizationBase, three levels below anything this
-program calls, and there is no way to opt out of a module's `__init__`. The
-code works at run time — `libjulia` is linked, so the `dlopen` succeeds — which
-is why the default build is `--trim=unsafe-warn`. A build with `--trim=safe`
-reports the same two and stops.
+The build defaults to `--trim=safe`, which fails on any unresolved call. Any
+verifier error means the program did not trim, whatever `--trim=unsafe-warn`
+may go on to link.
+
+**A preference is needed to get there.** `HostCPUFeatures.__init__` reaches a
+`dlopen` of LLVM to read the host's CPU feature string, which the verifier
+cannot resolve; nothing here uses that package, it arrives through
+VectorizationBase. `LocalPreferences.toml` sets its `freeze_cpu_target`, which
+makes the path statically dead — `build.jl` explains why in full, including
+why HostCPUFeatures has to be a direct dependency for the setting to apply.
 
 **Threads.** `Threads.@threads` does not work in a trimmed binary: the task
 bodies it creates are reached only through the scheduler, so they are not in
@@ -114,9 +117,8 @@ something to anchor on. Keep the struct monomorphic (dispatch the projection
 *inside* the task, not by parameterizing the job) so one declaration covers
 every CRS pair.
 
-**Relocatability.** The binary links only `libjulia`, but `HostCPUFeatures` and
-`libproj_jll` `dlopen` their libraries from absolute paths in the Julia depot
-at startup. It runs anywhere that depot is; it is not a copy-anywhere artifact.
+**Relocatability.** The binary links only `libjulia`, but `libproj_jll`
+`dlopen`s its library from an absolute path in the Julia depot at startup. It runs anywhere that depot is; it is not a copy-anywhere artifact.
 Shipping one would mean bundling those with `--relative-rpath`.
 
 ## Numbers

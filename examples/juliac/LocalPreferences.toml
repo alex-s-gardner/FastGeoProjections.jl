@@ -1,0 +1,2 @@
+[HostCPUFeatures]
+freeze_cpu_target = true
