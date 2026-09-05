@@ -6,8 +6,15 @@
 - 3031:     WGS 84 / Antarctic Polar Stereographic
 - 3413:     WGS 84 / NSIDC Sea Ice Polar Stereographic North
 - 4326:     WGS84 - World Geodetic System 1984
+- 4978:     WGS 84 geocentric Cartesian (x, y, z)
+- 4979:     WGS 84 geographic 3D (lon, lat, height)
 - 326XX:    WGS 84 / UTM zone XXN
 - 327XX:    WGS 84 / UTM zone XXS
+
+Any pair composes, since every projection is expressed relative to EPSG:4326 — so
+`EPSG(32619) => EPSG(32620)` is one pass over the data rather than two. The
+geocentric pair transforms the height rather than carrying it across, so those
+conversions take and return three coordinates.
 
 *Example*
 ```julia
@@ -155,6 +162,19 @@ $ ./fastgeoproj --input points.csv --from 4326 --to 32619 --always-xy
 ME = Maximum Error
 
 ![benchmark](benchmark/benchmark.jpg)
+
+*Related packages*
+
+- [**Proj.jl**](https://github.com/JuliaGeo/Proj.jl) wraps PROJ, and is what this package
+  falls back to for any CRS pair it has no native implementation for. Comprehensive where
+  this is narrow, and the reference every native projection here is asserted against.
+- [**Geodesy.jl**](https://github.com/JuliaGeo/Geodesy.jl) is native Julia and covers the
+  datum-level conversions — geodetic to ECEF and to a local ENU or UTM frame — without a
+  PROJ dependency. It overlaps this package at the geocentric conversions (EPSG:4978 and
+  4979) and at UTM, and is the better fit for local-frame work, which this package does not
+  do at all. Useful as an independent check on the geocentric math for exactly that reason:
+  a second unrelated formulation catches what a single implementation's own round trip
+  cannot.
 
 **Note**
 If you have recommendations for additional projections to support feel free to submit a an issue
