@@ -7,7 +7,7 @@ an executable with no Julia startup and no compilation at run time.
 ```console
 $ ./fastgeoproj --input sample.csv --from 4326 --to 32619 --always-xy
 500000.0,4.982950400226553e6
-380244.57633207337,4.900734380124455e6
+380244.57633207337,4.900734380124453e6
 557548.832534876,5.149876586070551e6
 426642.267622362,4.761207746467653e6
 319952.79600128037,4.735400315222241e6
@@ -25,10 +25,10 @@ Needs **Julia 1.12 or later** and a C compiler on `PATH` for the final link.
 $ julia --project=examples/juliac examples/juliac/build.jl
 ```
 
-That produces `examples/juliac/fastgeoproj` (about 17 MiB) in about half a
-minute. `build.jl --trim=safe` makes the build fail on any unresolved call
-instead of warning; see *What does not survive trimming* below for the two that
-are expected.
+That produces `examples/juliac/fastgeoproj` (about 15 MiB) in about half a
+minute. The build fails on any unresolved call; `build.jl --trim=unsafe-warn`
+downgrades those to warnings and links anyway, which is only useful for seeing
+the whole list at once.
 
 ## Use
 
@@ -43,10 +43,15 @@ Usage: fastgeoproj --input FILE --from EPSG --to EPSG [--output FILE]
                       than in the authority order (lat, lon)
 ```
 
-Supported codes are the ones FastGeoProjections implements natively — 4326,
-3031, 3413, and the 120 WGS 84 UTM zones (32601–32660, 32701–32760). Any pair
-of them works, composed through EPSG:4326: `--from 32619 --to 32620` is one
-pass over the data, not two.
+Supported codes are 4326, 3031, 3413, and the 120 WGS 84 UTM zones
+(32601–32660, 32701–32760). Any pair of them works, composed through EPSG:4326:
+`--from 32619 --to 32620` is one pass over the data, not two. Anything else is
+an error naming the code.
+
+That is the two-dimensional part of what the package implements natively. It
+also has EPSG:4978 (geocentric) and 4979 (geographic 3D), which this tool does
+not offer because its CSV is exactly two columns; a third would be a real
+addition rather than another branch in `with_source`/`with_target`.
 
 Without `--always-xy`, EPSG:4326 columns are `(lat, lon)`, which is the axis
 order the authority defines and what `cs2cs` expects. Projected CRSs are always
@@ -125,28 +130,30 @@ Shipping one would mean bundling those with `--relative-rpath`.
 
 Measured on an M4 Pro, 1,000,000 random points, Julia 1.12.7.
 
-**Agreement with Proj**, comparing the binary's output against `Proj.jl` over
-grids covering each projection's domain:
+**Agreement with Proj**, over grids covering each projection's domain — the
+polar caps at 1° of latitude by 5° of longitude, each UTM zone at ±3° of its
+central meridian by 3° of latitude:
 
 | conversion | max abs. difference |
 | --- | --- |
-| 4326 → 3413 | 2.8e-9 m |
-| 4326 → 3031 | 1.9e-9 m |
-| 4326 → all 120 UTM zones | 5.2e-9 m |
+| 4326 → 3413 | 2.2e-9 m |
+| 4326 → 3031 | 2.1e-9 m |
+| 4326 → all 120 UTM zones | 5.5e-9 m |
 | all 120 UTM zones → 4326 | 5.7e-14 ° |
-| 3413 → 4326 | 7.6e-12 ° |
+| 3413 → 4326 | 1.3e-12 ° |
+| 3031 → 4326 | 1.4e-12 ° |
 
 **Speed**, 4326 → 3413, one thread, output to `/dev/null`:
 
 | | wall time |
 | --- | --- |
 | `fastgeoproj` | 0.18 s |
-| `cs2cs` (PROJ 9.8.1) | 1.19 s |
+| `cs2cs` (PROJ 9.8.1) | 1.22 s |
 
-Same values to the digits `cs2cs -d 10` prints. It is not a perfectly matched
-comparison — `cs2cs` also emits a third `z` column, so it writes 27% more text
-(52.6 MB against 41.4 MB) — but the gap is not close enough for that to
-explain it.
+The two agree to 3.6e-9 m over the million points. It is not a perfectly
+matched comparison — `cs2cs` also emits a third `z` column, so it writes 28%
+more text (50.6 MB against 39.6 MB) — but the gap is not close enough for that
+to explain it.
 
 Startup, on a one-line file, is 30 ms. The same script run through `julia`
 instead of compiled takes 14.4 s for the same work, essentially all of it
@@ -158,11 +165,13 @@ package loading and JIT.
 | --- | --- |
 | read the file | 8 |
 | parse text → `Float64` | 76 |
-| **transform** | **14** |
+| **transform** | **7** |
 | format `Float64` → text and write | 44 |
 
-The projection is 9% of the run. Turning text into floats and back is the
-expensive half of a CSV tool, which is why the writer goes straight to a byte
-buffer with `Ryu.writeshortest` (about 4× an `IOBuffer` a field at a time, same
-shortest-round-trip digits) — and why threading the transform, if it were
-available, would buy under 10% end to end.
+The projection is 5% of the run, and was 9% before the polar stereographic
+forward traded its `pow` for a series (14 ms to 7 ms on the same points).
+Turning text into floats and back is the expensive half of a CSV tool, which is
+why the writer goes straight to a byte buffer with `Ryu.writeshortest` (about
+4× an `IOBuffer` a field at a time, same shortest-round-trip digits) — and why
+threading the transform, if it were available, would buy under 10% end to
+end.

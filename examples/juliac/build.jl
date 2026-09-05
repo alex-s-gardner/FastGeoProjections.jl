@@ -49,10 +49,11 @@
 # no other reason: Preferences are only applied to direct dependencies, and as
 # a transitive one the setting is read and ignored.
 #
-# Measured on aarch64: `pick_vector_width` is unchanged at 2 x Float64 /
-# 4 x Float32, output is byte-identical, and 1e6 points still take 0.17 s. On
-# x86 the setting freezes an *under-approximation* of the CPU features, so
-# check `VectorizationBase.pick_vector_width` there before trusting it.
+# Measured on aarch64, building both ways and diffing: `pick_vector_width` is
+# unchanged at 2 x Float64 / 4 x Float32, output is byte-identical, and 1e6
+# points take 0.18 s either way. On x86 the setting freezes an
+# *under-approximation* of the CPU features, so check
+# `VectorizationBase.pick_vector_width` there before trusting it.
 #
 # Removing the dependency outright would mean replacing VectorizationBase's
 # lane primitives and SLEEFPirates' kernels both -- the whole vectorization
