@@ -85,7 +85,12 @@ islanesafe(::ProjTransformation) = false
 # well as losing the height.
 preservesz(::ProjTransformation) = false
 
-# so the third coordinate goes to Proj, which applies the pipeline to it
+# `ncoords` stays at the default 2 all the same, which the native height-transforming
+# operators do not: 2D in and 2D out is a thing Proj resolves, and is what such a
+# pipeline is usually asked for, so it is not an error here the way it is for
+# `LonLatToGeocentric`. This is why the two traits are separate.
+
+# the third coordinate goes to Proj, which applies the pipeline to it
 function (t::ProjTransformation)(x, y, z)
     p = take!(t.pool)
     try

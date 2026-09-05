@@ -206,12 +206,12 @@ Apple M2 Max, 8 threads, one million points, out of place, `always_xy=true`. Rep
 
 | pipeline | Proj, 1 thread | Proj, 8 | FGP, 1 thread | FGP, 8 | ME |
 |---|---|---|---|---|---|
-| 4326→3413 polar stereographic | 81 | 14 | 8.5 | 2.0 | 2.3e-9 m |
-| 3031→4326 polar stereographic, inverse | 317 | 45 | 20 | 2.7 | 1.6e-12 ° |
-| 4326→3857 web Mercator | 62 | 9.5 | 13 | 1.8 | 3.7e-9 m |
-| 4326→32636 UTM zone 36N | 115 | 16 | 46 | 6.1 | 5.6e-9 m |
-| 32735→4326 UTM zone 35S, inverse | 125 | 18 | 64 | 11 | 5.7e-14 ° |
-| 4978→3413 geocentric, fused | 128 | 20 | 37 | 5.9 | 1.8e-8 m |
+| 4326→3413 polar stereographic | 81 | 14 | 8.4 | 1.2 | 2.3e-9 m |
+| 3031→4326 polar stereographic, inverse | 313 | 49 | 12 | 1.7 | 1.6e-12 ° |
+| 4326→3857 web Mercator | 63 | 10 | 13 | 1.8 | 3.7e-9 m |
+| 4326→32636 UTM zone 36N | 118 | 20 | 48 | 8.0 | 5.6e-9 m |
+| 32735→4326 UTM zone 35S, inverse | 126 | 19 | 64 | 8.5 | 5.7e-14 ° |
+| 4978→3413 geocentric, fused | 130 | 19 | 20 | 3.7 | 1.8e-8 m |
 
 Times are ns/point. The gap narrows above one thread, since Proj threads as well; it is the
 single-thread column that shows what the native implementation costs.

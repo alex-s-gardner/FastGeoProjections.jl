@@ -72,6 +72,24 @@ preservesz(::GeoTransformation) = true
 @inline (t::GeoTransformation)(x, y, z) = (t(x, y)..., z)
 
 """
+    ncoords(t)
+
+How many coordinates `t` takes and returns together: 2 for a map projection,
+which is a function of x and y, and 3 for a transformation that computes a third
+coordinate rather than leaving it alone.
+
+A property of the transformation, independent of what the caller's points hold.
+[`transform`](@ref) and [`transform!`](@ref) take the smaller of this and what
+the source and destination have room for, so a 3-coordinate operator fed
+2-component points is refused rather than run at an implied zero height.
+
+Distinct from [`preservesz`](@ref), which says whether a third coordinate *may*
+be carried across: an operator that transforms a height fails both, but one
+could preserve a height while still taking three coordinates.
+"""
+ncoords(::GeoTransformation) = 2
+
+"""
     adapt_eltype(t, ::Type{T})
 
 Rebuild `t` with its precomputed parameters stored as `T`, so a transformation
@@ -160,6 +178,9 @@ Base.inv(c::ComposedGeoTransformation) =
 
 islanesafe(c::ComposedGeoTransformation) = all(islanesafe, c.transformations)
 preservesz(c::ComposedGeoTransformation) = all(preservesz, c.transformations)
+# A chain takes as many coordinates as its hungriest stage: a datum shift anywhere
+# in it means the whole chain is fed three.
+ncoords(c::ComposedGeoTransformation) = maximum(ncoords, c.transformations)
 adapt_eltype(c::ComposedGeoTransformation, ::Type{T}) where {T} =
     ComposedGeoTransformation(map(t -> adapt_eltype(t, T), c.transformations))
 

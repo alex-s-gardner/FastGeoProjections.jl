@@ -843,6 +843,22 @@ end
     @testset "a height is transformed, not carried" begin
         @test !FastGeoProjections.preservesz(fwd)
         @test !FastGeoProjections.preservesz(inverse)
+
+        # ...and all three coordinates travel together, which is what selects the
+        # three-row lane loop and the three-coordinate scalar loop. Independent of
+        # `preservesz`: a Proj-backed pipeline is non-preserving but still takes
+        # two, since 2D in and 2D out is a thing Proj resolves.
+        @test FastGeoProjections.ncoords(fwd) == 3
+        @test FastGeoProjections.ncoords(inverse) == 3
+        @test FastGeoProjections.ncoords(LonLatToPolarStereographic(; lat_ts = 70.0,
+                                                                     lon_0 = -45.0)) == 2
+        @test FastGeoProjections.ncoords(Transformation(EPSG(4326), EPSG(3395))) == 2
+        # a chain takes as many as its hungriest stage, and the wrapper reports
+        # what the operator it holds does
+        fused = Transformation(EPSG(4978), EPSG(3413); always_xy = true)
+        @test FastGeoProjections.ncoords(fused) == 3 == FastGeoProjections.ncoords(fused.f)
+        @test FastGeoProjections.ncoords(
+            LonLatToPolarStereographic(; lat_ts = 70.0, lon_0 = -45.0) ∘ inverse) == 3
         for threaded in (false, true)
             o = transform(fwd, [(5.39, 52.16, 100.0)]; threaded)
             @test all(o[1] .≈ pj(5.39, 52.16, 100.0))
@@ -868,6 +884,47 @@ end
         @test inv(f32).kernel isa BaseKernel
         @test !FastGeoProjections.islanesafe(LonLatToGeocentric(kernel = BaseKernel()))
         @test FastGeoProjections.islanesafe(fwd)
+    end
+
+    @testset "over an array, on the three-row lane loop" begin
+        # A height-transforming operator drives the interleaved loop over three
+        # rows rather than two, so the whole `(x, y, z)` triple travels on lanes.
+        # Sizes cross the unrolled body, the single-vector body and the masked
+        # tail; the reference is the scalar path, which the operator reaches
+        # through a source that is not a dense float buffer.
+        #
+        # Bounds are absolute metres, as elsewhere in this file: the recovered
+        # height is a difference of two quantities near 6.4e6, so its last digits
+        # are cancellation rather than signal, and a relative bound on it measures
+        # that and nothing else. Both paths sit 4.6e-7 m from Proj either way.
+        W = FastGeoProjections.lanewidth(Float64)
+        U = FastGeoProjections.UNROLL
+        for op in (LonLatToGeocentric(), GeocentricToLonLat()),
+                n in (1, 2, W, W + 1, W * U, W * U + 1, 2 * W * U + 3, 1000)
+            geodetic = [(-175.0 + 350i / n, -85.0 + 170i / n, -400.0 + 8400i / n)
+                        for i in 1:n]
+            src = op isa LonLatToGeocentric ? geodetic :
+                  [LonLatToGeocentric()(p...) for p in geodetic]
+            lanes = transform(op, src; threaded = false)
+            scalar = [op(p...) for p in src]
+            # metres of ground distance for the geodetic pair, metres outright
+            # for a Cartesian one
+            scale = op isa LonLatToGeocentric ? (1.0, 1.0, 1.0) : (111320.0, 111320.0, 1.0)
+            @test maximum(maximum(abs.((a .- b) .* scale))
+                          for (a, b) in zip(lanes, scalar); init = 0.0) < 1e-6
+            # ...and the height is computed rather than carried across
+            @test all(a[3] != p[3] for (a, p) in zip(lanes, src))
+        end
+
+        # The fused pipeline is lane-safe and three-row too, and Proj is the
+        # reference for it end to end.
+        fused = Transformation(EPSG(4978), EPSG(3413); always_xy = true)
+        pj = Proj.Transformation("EPSG:4978", "EPSG:3413"; always_xy = true)
+        ecef = [LonLatToGeocentric()(lo, 70.0 + 0.01i, 100.0)
+                for (i, lo) in enumerate(range(-175.0, 175.0; length = 97))]
+        got = transform(fused, ecef; threaded = false)
+        @test all(all(isapprox.(g[1:2], pj(p...)[1:2]; rtol = 1e-9))
+                  for (g, p) in zip(got, ecef))
     end
 
     @testset "through the EPSG registry" begin

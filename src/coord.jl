@@ -75,6 +75,7 @@ Transformation(source_epsg::String, target_epsg::String; kwargs...) =
 @inline (t::Transformation)(x, y, z) = t.f(x, y, z)
 islanesafe(t::Transformation) = islanesafe(t.f)
 preservesz(t::Transformation) = preservesz(t.f)
+ncoords(t::Transformation) = ncoords(t.f)
 adapt_eltype(t::Transformation, ::Type{T}) where {T} = adapt_eltype(t.f, T)
 _transform_pts!(dest, t::Transformation, src, threaded) =
     _transform_pts!(dest, t.f, src, threaded)

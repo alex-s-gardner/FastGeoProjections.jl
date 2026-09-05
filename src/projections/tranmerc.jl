@@ -175,6 +175,12 @@ end
 
 Clenshaw summation of `sum(c[j] * sin(2j*x))` (`sinp`) or
 `sum(c[j] * cos((2j-1)*x))`.
+
+Reached only from `_tm_params`, at construction time, where the coefficients come
+from `C1f` as a `Vector` of run-time length. The loop over that vector is what
+keeps this off the lane path, and is why the sine case is not
+[`Math.sin2_series`](@ref): that one recurses over a tuple so the series unrolls
+and vectorizes, which is what a per-point caller needs and this one does not.
 """
 function SinCosSeries(sinp::Bool, sinx, cosx, c)
     isempty(c) && return zero(sinx)

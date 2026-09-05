@@ -31,6 +31,11 @@ the geocentric inverse computes on the way to a latitude; `x` and `y` are the
 equatorial Cartesian coordinates. The four are not independent -- `hypot(x, y)`
 and `d` differ only by the ellipsoid's curvature correction -- but both are
 needed, `d` for the latitude and `(x, y)` for the longitude.
+
+The type parameter follows the components, which are whatever the arithmetic that
+produced them returned -- a scalar on the scalar path, a `Vec` of lanes on the
+SIMD one. It is not the operator's own precision: pinning it to that would make
+every `Direction` a scalar and keep the geocentric conversions off the lane loop.
 """
 struct Direction{T}
     d::T
@@ -68,8 +73,11 @@ falls back to, and what a projection reaches for where it needs the angle itself
 rather than its sine and cosine -- the reduction against a central meridian in
 [`LonLatToTransverseMercator`](@ref), for one.
 """
-@inline lat_degrees(dir::Direction{T}) where {T} = atan(dir.z, dir.d) * T(180 / pi)
-@inline lon_degrees(dir::Direction{T}) where {T} = atan(dir.y, dir.x) * T(180 / pi)
+#
+# `oftype`, not `T(...)`: on the lane path `T` is a `Vec`, which cannot be
+# constructed from a scalar constant.
+@inline lat_degrees(dir::Direction) = atan(dir.z, dir.d) * oftype(dir.z, 180 / pi)
+@inline lon_degrees(dir::Direction) = atan(dir.y, dir.x) * oftype(dir.y, 180 / pi)
 
 """
     project_direction(t, dir::Direction)
