@@ -1085,6 +1085,12 @@ end
         @test x ≈ 20037508.342789244 rtol = 1e-14
         @test y ≈ 20037508.342789244 rtol = 1e-14
         @test fwd(0.0, 0.0) === (0.0, 0.0)
+        # The inverse forms the Gudermannian as `2*atan(exp(u)) - pi/2`, and subtracts
+        # in radians rather than folding the term into the degree conversion. Folded, the
+        # equator comes back as -3.9e-16 instead of zero, because `2*atan(1)` is not
+        # exactly `pi/2` and scaling before subtracting magnifies the difference.
+        @test rev(0.0, 0.0) === (0.0, 0.0)
+        @test !signbit(rev(0.0, 0.0)[2])
     end
 
     @testset "round trip closes" begin

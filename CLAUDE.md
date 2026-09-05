@@ -97,7 +97,7 @@ Measured on aarch64 (M-series), 1 thread, 100k points, out of place:
 | pipeline | ns/point |
 |---|---|
 | 4326→3857 web Mercator | ~12 |
-| 3857→4326 web Mercator, inverse | ~7 |
+| 3857→4326 web Mercator, inverse | ~4 |
 | 4326→3413 polar stereographic | ~10 |
 | 3413→4326 polar stereographic, inverse | ~19 |
 | 4326→32619 UTM | ~48 |
