@@ -262,13 +262,18 @@ end
     end
 end
 
-# `threaded = false`: `Threads.@threads` does not survive `--trim` (see
-# README.md). The projection is a small part of the run time here anyway --
-# turning text into floats and back is the expensive half of a CSV tool.
+# `threaded = true` works because 1.13 keeps task bodies in a trimmed image; on
+# 1.12 this call compiled and then died at run time (see README.md). Threads
+# come from `JULIA_NUM_THREADS`, which a trimmed binary reads as usual, so this
+# is one thread unless the caller asks for more.
+#
+# It buys little here: the projection is 5% of the run, and turning text into
+# floats and back is the expensive half of a CSV tool. The transform itself
+# scales about 5x on eight threads.
 function reproject!(pts::Vector{Point}, o::Options)
     with_source(o.from, o.always_xy) do to_lonlat
         with_target(o.to, o.always_xy) do from_lonlat
-            transform!(from_lonlat ∘ to_lonlat, pts; threaded = false)
+            transform!(from_lonlat ∘ to_lonlat, pts; threaded = true)
             nothing
         end
     end
