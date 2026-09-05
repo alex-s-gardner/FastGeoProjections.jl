@@ -1,7 +1,7 @@
 # Throughput harness for the optimization pass: one row per (operator, call shape),
 # reported as ns/point so array and scalar paths are comparable.
 #
-# Run as `julia --project=. --threads=8 benchmark/optimize_bench.jl [label]`.
+# Run as `julia --project=benchmark --threads=8 benchmark/optimize_bench.jl [label]`.
 # Results and the numerical snapshot are serialized next to this file so a later
 # run can be compared without re-measuring the baseline.
 

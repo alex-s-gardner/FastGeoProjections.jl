@@ -6,3 +6,6 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+
+# serialized benchmark results; the committed figure is the shareable artifact
+/benchmark/*.jls
