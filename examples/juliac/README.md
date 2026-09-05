@@ -51,7 +51,7 @@ Usage: fastgeoproj --input FILE --from EPSG --to EPSG [--output FILE]
                       than in the authority order (lat, lon)
 ```
 
-Supported codes are 4326, 3031, 3413, and the 120 WGS 84 UTM zones
+Supported codes are 4326, 3031, 3413, 3857, and the 120 WGS 84 UTM zones
 (32601–32660, 32701–32760). Any pair of them works, composed through EPSG:4326:
 `--from 32619 --to 32620` is one pass over the data, not two. Anything else is
 an error naming the code.
@@ -86,8 +86,8 @@ trimmer cannot follow. `with_source`/`with_target` do the same job by passing a
 ```
 
 Each branch specializes `k` on one operator type, so the transform is compiled
-with the projection fully inlined and nothing dispatches at run time. Three
-source operators and three target ones means a handful of copies of the loop in
+with the projection fully inlined and nothing dispatches at run time. Four
+source operators and four target ones means a handful of copies of the loop in
 the binary, all statically reachable.
 
 **The points are already in the layout the SIMD path wants.** A CSV of pairs

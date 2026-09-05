@@ -24,6 +24,7 @@ module FastGeoProjApp
 using FastGeoProjections
 using FastGeoProjections: Identity, SwapXY,
                           LonLatToPolarStereographic, PolarStereographicToLonLat,
+                          LonLatToWebMercator, WebMercatorToLonLat,
                           LonLatToUTM, UTMToLonLat
 
 const F = Float64
@@ -66,6 +67,7 @@ Supported EPSG codes:
   4326            WGS 84 geographic
   3031            WGS 84 / Antarctic Polar Stereographic
   3413            WGS 84 / NSIDC Sea Ice Polar Stereographic North
+  3857            WGS 84 / Pseudo-Mercator (web Mercator)
   32601 - 32660   WGS 84 / UTM zones 1N - 60N
   32701 - 32760   WGS 84 / UTM zones 1S - 60S
 """
@@ -83,7 +85,7 @@ struct Options
 end
 
 issupported(code::Int) =
-    code == 4326 || code == 3031 || code == 3413 ||
+    code == 4326 || code == 3031 || code == 3413 || code == 3857 ||
     (32601 <= code <= 32660) || (32701 <= code <= 32760)
 
 function parse_epsg(s::String, flag::String)
@@ -227,9 +229,9 @@ end
 # Passing the operator *forward* to a continuation instead of returning it
 # moves that choice into the type domain: every branch below specializes `k` on
 # a concrete operator, so the transform is compiled with the projection fully
-# inlined and nothing is dispatched at run time. Three source operators and
-# three target ones (plus SwapXY for authority axis order) means the binary
-# carries a handful of copies of the transform loop.
+# inlined and nothing is dispatched at run time. Four source operators and four
+# target ones (plus SwapXY for authority axis order) means the binary carries a
+# handful of copies of the transform loop.
 # ---------------------------------------------------------------------------
 
 @inline function with_source(k::K, code::Int, always_xy::Bool)::Nothing where {K}
@@ -241,6 +243,8 @@ end
         k(PolarStereographicToLonLat{F}(; lat_ts = -71.0, lon_0 = 0.0))
     elseif code == 3413
         k(PolarStereographicToLonLat{F}(; lat_ts = 70.0, lon_0 = -45.0))
+    elseif code == 3857
+        k(WebMercatorToLonLat{F}())
     elseif 32601 <= code <= 32660
         k(UTMToLonLat{F}(code - 32600, true))
     else
@@ -255,6 +259,8 @@ end
         k(LonLatToPolarStereographic{F}(; lat_ts = -71.0, lon_0 = 0.0))
     elseif code == 3413
         k(LonLatToPolarStereographic{F}(; lat_ts = 70.0, lon_0 = -45.0))
+    elseif code == 3857
+        k(LonLatToWebMercator{F}())
     elseif 32601 <= code <= 32660
         k(LonLatToUTM{F}(code - 32600, true))
     else

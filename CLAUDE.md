@@ -23,14 +23,17 @@ julia --project=. --threads=8 -e 'import Pkg; Pkg.test()'        # threading pat
 
 # single test file
 julia --project=. -e 'using TestEnv; TestEnv.activate(); include("test/transformations.jl")'
+
+# benchmarks; the `benchmark/` project carries its own dev'd path to this one
+julia --project=benchmark --threads=8 benchmark/benchmark.jl        # vs Proj, writes benchmark.png
+julia --project=benchmark --threads=8 benchmark/optimize_bench.jl [label]   # per operator
 ```
 
 CI runs 1.10 and nightly on ubuntu with `JULIA_NUM_THREADS=4`. No docs project, no formatter.
 
-The committed `benchmark/` project pulls GLMakie, which will not precompile headless — for
-benchmarking, make a scratch environment with `Pkg.develop(path=".")` plus BenchmarkTools rather
-than using `--project=benchmark`. `benchmark/benchmark.jl` and the `benchmark.jpg` in the README
-predate the point-operator restructure and no longer run.
+`benchmark/` uses CairoMakie, so it precompiles and runs headless. The full `benchmark.jl` sweep
+is six CRS pairs × five point counts × four configurations and takes about ten minutes; it
+serializes to `benchmark.jls`, so the figure can be regenerated from a saved run.
 
 ## Architecture
 
@@ -92,20 +95,30 @@ axis orders, so an unclassified code fails rather than silently returning x and 
 
 ## Performance notes
 
-Measured on aarch64 (M-series), 1 thread, 100k points, out of place:
+Measured on aarch64 (M2 Max), 1 thread, 100k points, out of place, over a vector of points:
 
 | pipeline | ns/point |
 |---|---|
-| 4326→3857 web Mercator | ~12 |
-| 3857→4326 web Mercator, inverse | ~4 |
+| 3857→4326 web Mercator, inverse | ~5 |
 | 4326→3413 polar stereographic | ~10 |
-| 3413→4326 polar stereographic, inverse | ~19 |
-| 4326→32619 UTM | ~48 |
-| 4978→3413 fused geocentric | ~34 |
-| 4978→3857 fused geocentric | ~69 |
+| 4979→4978 geocentric forward | ~12 |
+| 4326→3857 web Mercator | ~16 |
+| 3413→4326 polar stereographic, inverse | ~23 |
+| 4978→3413 fused geocentric | ~36 |
+| 4978→4979 geocentric inverse | ~43 |
+| 4326→32619 UTM | ~49 |
+| 4978→3857 fused geocentric | ~70 |
+| 32619→4326 UTM, inverse | ~77 |
 
-The inverse costs twice the forward because the conformal→geodetic series is five
-`Math.sin` calls against the forward's one `Math.conformal_ratio`.
+Two coordinate vectors run 2–3 ns/point faster than a vector of points, all of it the strided
+AoS load; the shape a number is quoted in matters at this scale.
+
+The polar stereographic inverse costs twice its forward because the conformal→geodetic series is
+five `Math.sin` calls against the forward's one `Math.conformal_ratio`.
+
+`benchmark/benchmark.jl` measures whole pipelines against Proj across point counts and writes
+`benchmark/benchmark.png`; `benchmark/optimize_bench.jl` measures individual operators per call
+shape. Both serialize their results, so a later run compares without re-measuring a baseline.
 
 Two things to know before optimizing:
 
@@ -138,8 +151,9 @@ under about 8%.
 
 - **A height-transforming operator never reaches the SIMD lane loop.** `_transform_pts!` sends it
   to the scalar path, because the interleaved loop writes rows 1 and 2 and preserves the rest. The
-  cost is small — geocentric on the scalar path is ~12 ns/point, faster than any 2-D operator on
-  the lane path — but a 3-coordinate lane loop would recover roughly 2× on that operator.
+  cost is small — the geocentric forward on the scalar path is ~12 ns/point, in the range the 2-D
+  projections reach on the lane path — but a 3-coordinate lane loop would recover roughly 2× on
+  that operator.
 - **`_lane_range_aos!` is not worth tuning.** Running `Identity` through it measures 0.68–0.81
   ns/point, so the loop is ~4% of a projection's runtime and the strided AoS load costs 0.44
   ns/point over the contiguous SoA one. `UNROLL` (2/4/8/16) and `CHUNK` are all inside the noise

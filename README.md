@@ -44,7 +44,7 @@ convention:
 julia> trans = FastGeoProjections.Transformation(EPSG(4326), EPSG(3413); always_xy=true)
 
 julia> trans(-45.0, 70.0)                   # two coordinates
-(0.0, -2.187927649279021e6)
+(0.0, -2.1879276492790217e6)
 
 julia> points = [(-45.0, 70.0), (-44.0, 71.0)];
 julia> transform(trans, points)             # a vector of points
@@ -111,11 +111,11 @@ Each is named for what it does, source to target:
 ```julia
 julia> tm = LonLatToTransverseMercator(; lon0 = -69.0, lat0 = 0.0)
 julia> tm(-68.0, 45.0)
-(78846.84165337226, 4.985430940725587e6)
+(78846.84165337228, 4.985430940725587e6)
 
 julia> inv(tm)                                 # TransverseMercatorToLonLat
 julia> convergence_scale(tm, -68.0, 45.0)      # meridian convergence [°], point scale
-(0.7071430455192697, 1.0000764118961942)
+(0.7071430455192697, 1.0000764118961945)
 ```
 
 UTM is its own operator, carrying the zone and hemisphere as fields and folding the
@@ -126,10 +126,50 @@ julia> u = LonLatToUTM(19, true)
 LonLatToUTM{Float64}(zone = 19, north)
 
 julia> u(-69.0, 45.0)
-(500000.0, 4.982950400226553e6)
+(500000.0, 4.982950400226552e6)
 
 julia> convergence_scale(u, -69.0, 45.0)       # k includes the 0.9996 zone factor
-(0.0, 0.9995999999999997)
+(0.0, 0.9995999999999999)
+```
+
+Web Mercator takes no parameters. It is a spherical Mercator on the WGS 84 semi-major
+axis, which is the definition EPSG:3857 gives -- the latitude is used unchanged rather
+than converted to a conformal one, and the ellipsoid enters only through the radius:
+
+```julia
+julia> LonLatToWebMercator()(-45.0, 70.0)
+(-5.009377085697311e6, 1.1068715659379493e7)
+```
+
+*Heights*
+
+A map projection is a function of x and y, so a third coordinate passes through it
+untouched. The geocentric conversions are not: a geocentric z is a Cartesian coordinate,
+and x and y depend on the height going in. Both directions therefore take and return
+three coordinates, and a two-coordinate call is an error rather than an implied
+sea-level point, which would move x and y by metres:
+
+```julia
+julia> LonLatToGeocentric()(5.39, 52.16, 100.0)
+(3.9036404612786868e6, 368315.27616670664, 5.013823349039822e6)
+
+julia> LonLatToGeocentric()(5.39, 52.16)
+ERROR: ArgumentError: LonLatToGeocentric transforms (lon, lat, height); ...
+```
+
+`preservesz(t)` answers which kind `t` is, and `transform`/`transform!` consult it before
+carrying a z across: rather than return a height it cannot compute, a whole-array call
+refuses to run. Proj-backed transformations report `false` too, since the pipeline Proj
+resolves may be a datum shift.
+
+Composing a geocentric stage with a projection would form `atan(z, d)` and `atan(y, x)`
+and immediately take their sines and cosines. Where the projection after it can consume
+the direction directly, `pipeline` substitutes a fused operator that never forms the
+angles -- the same function to within a few ulps, at roughly half the cost:
+
+```julia
+julia> FastGeoProjections.Transformation(EPSG(4978), EPSG(3413); always_xy=true).f
+LonLatToPolarStereographic{Float64}(lon_0 = -45.0°) ∘ GeocentricToLonLat{Float64}(WGS_84) [fused]
 ```
 
 *Math kernels*
@@ -160,9 +200,28 @@ $ ./fastgeoproj --input points.csv --from 4326 --to 32619 --always-xy
 
 *Benchmark*
 
-ME = Maximum Error
+Throughput against Proj, and the largest disagreement with it (ME) over the same points.
+Apple M2 Max, 8 threads, one million points, out of place, `always_xy=true`. Reproduce with
+`julia --project=benchmark --threads=8 benchmark/benchmark.jl`.
 
-![benchmark](benchmark/benchmark.jpg)
+| pipeline | Proj, 1 thread | Proj, 8 | FGP, 1 thread | FGP, 8 | ME |
+|---|---|---|---|---|---|
+| 4326→3413 polar stereographic | 81 | 14 | 8.5 | 2.0 | 2.3e-9 m |
+| 3031→4326 polar stereographic, inverse | 317 | 45 | 20 | 2.7 | 1.6e-12 ° |
+| 4326→3857 web Mercator | 62 | 9.5 | 13 | 1.8 | 3.7e-9 m |
+| 4326→32636 UTM zone 36N | 115 | 16 | 46 | 6.1 | 5.6e-9 m |
+| 32735→4326 UTM zone 35S, inverse | 125 | 18 | 64 | 11 | 5.7e-14 ° |
+| 4978→3413 geocentric, fused | 128 | 20 | 37 | 5.9 | 1.8e-8 m |
+
+Times are ns/point. The gap narrows above one thread, since Proj threads as well; it is the
+single-thread column that shows what the native implementation costs.
+
+The geocentric row compares the projected x and y only. Proj's own geocentric inverse loses
+accuracy in the height it returns — 8.8e-7 m over a −400 m to 8 km range, against 3.9e-9 m here —
+so the height is pinned against an exactly computed position in the test suite rather than
+against Proj.
+
+![benchmark](benchmark/benchmark.png)
 
 *Related packages*
 
