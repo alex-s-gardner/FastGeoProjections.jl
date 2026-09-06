@@ -2,6 +2,20 @@
 
 **FastGeoProjections** is intended to provide highly optimized native Julia geospatial coordinate transformations from one coordinate reference system (CRS) to another as defined by EPSG codes. It is not intended to replace, nor to be as comprehensive as, [Proj](https://github.com/JuliaGeo/Proj.jl). The package will natively support only the most common geospatial transformations and relies on **Proj.jl** for all others.
 
+**Proj.jl is a weak dependency.** Nothing in the list below needs it, so it is not
+installed or loaded on your behalf. A CRS pair outside that list needs the Proj
+fallback, and says so:
+
+```julia
+julia> FastGeoProjections.Transformation(EPSG(4326), EPSG(3395))
+ERROR: ArgumentError: FastGeoProjections has no native transformation from EPSG:4326 to EPSG:3395.
+Run `import Proj` to use the Proj.jl fallback for this CRS pair; the natively
+implemented codes are in `FastGeoProjections.fast_epsg_codes`.
+```
+
+`import Proj` alongside `using FastGeoProjections` enables the fallback for every
+non-native pair; there is nothing else to configure.
+
 *Supported Projection EPSGs*
 - 3031:     WGS 84 / Antarctic Polar Stereographic
 - 3413:     WGS 84 / NSIDC Sea Ice Polar Stereographic North
@@ -226,8 +240,9 @@ against Proj.
 *Related packages*
 
 - [**Proj.jl**](https://github.com/JuliaGeo/Proj.jl) wraps PROJ, and is what this package
-  falls back to for any CRS pair it has no native implementation for. Comprehensive where
-  this is narrow, and the reference every native projection here is asserted against.
+  falls back to for any CRS pair it has no native implementation for — as a weak
+  dependency, so `import Proj` is what turns the fallback on. Comprehensive where this is
+  narrow, and the reference every native projection here is asserted against.
 - [**Geodesy.jl**](https://github.com/JuliaGeo/Geodesy.jl) is native Julia and covers the
   datum-level conversions — geodetic to ECEF and to a local ENU or UTM frame — without a
   PROJ dependency. It overlaps this package at the geocentric conversions (EPSG:4978 and

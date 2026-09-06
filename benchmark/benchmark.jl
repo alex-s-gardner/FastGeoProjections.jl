@@ -12,6 +12,7 @@
 
 using FastGeoProjections
 using FastGeoProjections: Transformation, transform   # DataFrames exports `transform` too
+import Proj                                          # a weak dependency: `proj_only` needs it loaded
 using BenchmarkTools
 using DataFrames
 using CairoMakie

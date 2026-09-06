@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "893980391ee9755e9cc7cc4ec844e8a7d80d68cb"
+project_hash = "1f95e68c8bd8eac40df41cbbe65355b0690ef66a"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -460,10 +460,14 @@ uuid = "b86e33f2-c0db-4aa1-a6e0-ab43e668529e"
 version = "0.3.1"
 
 [[deps.FastGeoProjections]]
-deps = ["CoordinateTransformations", "GeoFormatTypes", "GeoInterface", "Proj", "SLEEFPirates", "VectorizationBase"]
+deps = ["CoordinateTransformations", "GeoFormatTypes", "GeoInterface", "SLEEFPirates", "VectorizationBase"]
 path = ".."
 uuid = "981663e8-0c94-46dd-b2cf-efc8480900ec"
 version = "0.1.0"
+weakdeps = ["Proj"]
+
+    [deps.FastGeoProjections.extensions]
+    FastGeoProjectionsProjExt = "Proj"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
