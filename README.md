@@ -220,20 +220,32 @@ Apple M2 Max, 8 threads, one million points, out of place, `always_xy=true`. Rep
 
 | pipeline | Proj, 1 thread | Proj, 8 | FGP, 1 thread | FGP, 8 | ME |
 |---|---|---|---|---|---|
-| 4326→3413 polar stereographic | 81 | 14 | 8.4 | 1.2 | 2.3e-9 m |
-| 3031→4326 polar stereographic, inverse | 313 | 49 | 12 | 1.7 | 1.6e-12 ° |
-| 4326→3857 web Mercator | 63 | 10 | 13 | 1.8 | 3.7e-9 m |
-| 4326→32636 UTM zone 36N | 118 | 20 | 48 | 8.0 | 5.6e-9 m |
-| 32735→4326 UTM zone 35S, inverse | 126 | 19 | 64 | 8.5 | 5.7e-14 ° |
-| 4978→3413 geocentric, fused | 130 | 19 | 20 | 3.7 | 1.8e-8 m |
+| 4326→3413 polar stereographic | 81 | 13 | 8.5 | 1.2 | 2.3e-9 m |
+| 3031→4326 polar stereographic, inverse | 317 | 47 | 12 | 2.6 | 1.6e-12 ° |
+| 4326→3857 web Mercator | 65 | 18 | 14 | 2.6 | 3.7e-9 m |
+| 4326→32636 UTM zone 36N | 118 | 18 | 47 | 7.5 | 5.6e-9 m |
+| 32735→4326 UTM zone 35S, inverse | 125 | 19 | 64 | 8.4 | 5.7e-14 ° |
+| 4978→3413 geocentric, fused | 127 | 17 | 19 | 3.0 | 1.8e-8 m |
+| 4978→3857 geocentric to web Mercator, fused | 106 | 15 | 34 | 5.1 | 5.5e-7 m |
+| 4978→32636 geocentric to UTM 36N, fused | 157 | 22 | 85 | 12 | 2.2e-7 m |
 
 Times are ns/point. The gap narrows above one thread, since Proj threads as well; it is the
 single-thread column that shows what the native implementation costs.
 
-The geocentric row compares the projected x and y only. Proj's own geocentric inverse loses
+The last three rows are fused pipelines: a geocentric source is folded into the projection
+after it, so the trigonometry between the two stages is never performed. See
+`FusedFromGeocentric`. All three CRSs are reachable unfused too — the fusion is an
+optimization with the same result to a few ulps, not a different transformation.
+
+The geocentric rows compare the projected x and y only. Proj's own geocentric inverse loses
 accuracy in the height it returns — 8.8e-7 m over a −400 m to 8 km range, against 3.9e-9 m here —
 so the height is pinned against an exactly computed position in the test suite rather than
 against Proj.
+
+Their ME is larger than a map projection's for the same reason, and it is Proj's error rather
+than this package's: it tracks how far the two geocentric inverses disagree over the latitudes
+each row sweeps — 1.9e-8 m over the polar band, 3.4e-7 m over ±85° — and the fused and unfused
+forms report it identically.
 
 ![benchmark](benchmark/benchmark.png)
 

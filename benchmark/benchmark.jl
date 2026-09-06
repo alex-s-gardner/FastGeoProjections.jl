@@ -44,7 +44,13 @@ const CASES = [
     Case(EPSG(4326), EPSG(3857), :soa, "web Mercator"),
     Case(EPSG(4326), EPSG(32636), :soa, "UTM zone 36N"),
     Case(EPSG(32735), EPSG(4326), :soa, "UTM zone 35S, inverse"),
+    # A geocentric source is fused into the projection after it, so each of the
+    # three projections that opt into `project_direction` is measured that way:
+    # what the fusion is worth depends on how much of the projection's own
+    # trigonometry it cancels, which differs per projection.
     Case(EPSG(4978), EPSG(3413), :aos, "geocentric, fused"),
+    Case(EPSG(4978), EPSG(3857), :aos, "geocentric to web Mercator, fused"),
+    Case(EPSG(4978), EPSG(32636), :aos, "geocentric to UTM 36N, fused"),
 ]
 
 # Longitude and latitude samples in the hemisphere each case covers, then
