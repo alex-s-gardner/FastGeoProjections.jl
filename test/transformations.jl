@@ -565,6 +565,20 @@ end
         @test all(transform(tp, [(lon, lat)])[1] .≈
                   Proj.Transformation("EPSG:4326", "EPSG:3395"; always_xy = true)(lon, lat))
 
+        # ...but where the points *do* carry a height, Proj gets all three, and
+        # `ncoords` has to say 3 for that to happen. Saying 2 -- on the grounds
+        # that a two-coordinate call is legal here -- silently transforms x and y
+        # and carries the height, which for a geocentric target is metres out and
+        # for a geographic one is a height that was never converted.
+        tzp = Transformation(EPSG(4979), EPSG(4978); always_xy = true, proj_only = true)
+        @test FastGeoProjections.ncoords(tzp) == 3
+        want3 = tzp(lon, lat, h)
+        for threaded in (false, true)
+            o = transform(tzp, [(lon, lat, h)]; threaded)
+            @test all(o[1] .≈ want3)
+            @test o[1][3] != h                       # computed, not carried
+        end
+
         # A map projection is a function of x and y, so it does preserve one.
         @test FastGeoProjections.preservesz(Transformation(EPSG(4326), EPSG(3413)))
         # ...and a chain is only as preserving as its least preserving stage.
@@ -845,14 +859,19 @@ end
         @test !FastGeoProjections.preservesz(inverse)
 
         # ...and all three coordinates travel together, which is what selects the
-        # three-row lane loop and the three-coordinate scalar loop. Independent of
-        # `preservesz`: a Proj-backed pipeline is non-preserving but still takes
-        # two, since 2D in and 2D out is a thing Proj resolves.
+        # three-row lane loop and the three-coordinate scalar loop.
+        #
+        # `ncoords` is the most an operator takes, so *everything* that computes a
+        # third coordinate answers 3 -- a Proj-backed pipeline included, even
+        # though a two-coordinate call to one is legal rather than an error.
+        # Answering 2 on that ground is what carries a height that should have
+        # been transformed. Only a map projection, a function of x and y, is 2.
         @test FastGeoProjections.ncoords(fwd) == 3
         @test FastGeoProjections.ncoords(inverse) == 3
+        @test FastGeoProjections.ncoords(Transformation(EPSG(4326), EPSG(3395))) == 3
         @test FastGeoProjections.ncoords(LonLatToPolarStereographic(; lat_ts = 70.0,
                                                                      lon_0 = -45.0)) == 2
-        @test FastGeoProjections.ncoords(Transformation(EPSG(4326), EPSG(3395))) == 2
+        @test FastGeoProjections.ncoords(Transformation(EPSG(4326), EPSG(3413))) == 2
         # a chain takes as many as its hungriest stage, and the wrapper reports
         # what the operator it holds does
         fused = Transformation(EPSG(4978), EPSG(3413); always_xy = true)

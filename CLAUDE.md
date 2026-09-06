@@ -90,10 +90,16 @@ axis orders, so an unclassified code fails rather than silently returning x and 
   lat, lon); the operators underneath are *always* xy. Axis order is handled by composing `SwapXY`
   onto the geographic end of a pipeline, not by a per-point branch.
 - **`islanesafe`, `preservesz` and `ncoords` are independent traits.** Lane-safe means evaluable on
-  `Vec` lanes; `preservesz` means a third coordinate passes through untouched; `ncoords` is how many
-  coordinates the operator takes at once. A map projection is lane-safe, preserving, and 2; the
-  geocentric conversions are lane-safe, non-preserving, and 3. Code that conflates them takes the
-  wrong path silently.
+  `Vec` lanes; `preservesz` means a third coordinate passes through untouched; `ncoords` is the
+  *most* coordinates the operator takes at once. A map projection is lane-safe, preserving, and 2;
+  the geocentric conversions are lane-safe, non-preserving, and 3; `ProjTransformation` is
+  non-lane-safe, non-preserving, and 3. Code that conflates them takes the wrong path silently.
+- **`ncoords` is an upper bound, not a requirement, and everything that computes a third
+  coordinate must answer 3.** Answering 2 because a two-coordinate call is *legal* — which it is
+  for `ProjTransformation`, where PROJ resolves 2D-in/2D-out — sends 3-component points down the
+  two-coordinate path, which transforms x and y and carries the height untouched. What a smaller
+  call means is the operator's own two-coordinate method's business: `LonLatToGeocentric` throws
+  there, `ProjTransformation` transforms.
 - **A height is transformed, not carried, where the transformation changes one.** For a datum shift
   or a geocentric conversion, the two-coordinate call is the `h = 0` point — which moves x and y by
   metres — so `LonLatToGeocentric` and `GeocentricToLonLat` reject it rather than assume sea level.

@@ -99,10 +99,15 @@ islanesafe(::ProjTransformation) = false
 # well as losing the height.
 preservesz(::ProjTransformation) = false
 
-# `ncoords` stays at the default 2 all the same, which the native height-transforming
-# operators do not: 2D in and 2D out is a thing Proj resolves, and is what such a
-# pipeline is usually asked for, so it is not an error here the way it is for
-# `LonLatToGeocentric`. This is why the two traits are separate.
+# The pipeline consumes a height where the points carry one, so all three
+# coordinates go to Proj together.
+#
+# Unlike the native height-transforming operators, this does *not* make a
+# two-coordinate call an error: 2D in and 2D out is a thing Proj resolves, and is
+# what such a pipeline is usually asked for. `ncoords` is the most an operator
+# takes, not the least -- what happens with fewer is the business of its own
+# two-coordinate method, which here transforms rather than throwing.
+ncoords(::ProjTransformation) = 3
 
 Base.show(io::IO, t::ProjTransformation) =
     print(io, "ProjTransformation(EPSG:", first(t.source_epsg.val),

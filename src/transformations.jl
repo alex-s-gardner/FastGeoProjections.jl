@@ -74,18 +74,21 @@ preservesz(::GeoTransformation) = true
 """
     ncoords(t)
 
-How many coordinates `t` takes and returns together: 2 for a map projection,
+The **most** coordinates `t` takes and returns together: 2 for a map projection,
 which is a function of x and y, and 3 for a transformation that computes a third
 coordinate rather than leaving it alone.
 
-A property of the transformation, independent of what the caller's points hold.
-[`transform`](@ref) and [`transform!`](@ref) take the smaller of this and what
-the source and destination have room for, so a 3-coordinate operator fed
-2-component points is refused rather than run at an implied zero height.
+An upper bound, not a requirement. [`transform`](@ref) and [`transform!`](@ref)
+take the smaller of this and what the source and destination have room for, so a
+3-coordinate operator over 2-component points is called with two -- and what that
+means is its own two-coordinate method's business. `LonLatToGeocentric` throws
+there, because the height it would assume moves x and y by metres; a Proj-backed
+pipeline transforms, because 2D in and 2D out is a thing PROJ resolves.
 
-Distinct from [`preservesz`](@ref), which says whether a third coordinate *may*
-be carried across: an operator that transforms a height fails both, but one
-could preserve a height while still taking three coordinates.
+Anything that computes a third coordinate must answer 3, or it is handed two and
+silently carries a height it should have transformed. That makes this a stricter
+condition than [`preservesz`](@ref), which only says whether a third coordinate
+*may* be carried across.
 """
 ncoords(::GeoTransformation) = 2
 
