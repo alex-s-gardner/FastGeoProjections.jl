@@ -32,8 +32,10 @@ end
     "$(typeof(t.geo)) transforms (x, y, z); a two-coordinate call would mean z = 0, a point on " *
     "the equatorial plane. Pass all three coordinates."))
 
-# The height is transformed by the geocentric stage, so it cannot be carried.
+# The height is consumed by the geocentric stage, so it cannot be carried, and the
+# operator takes all three coordinates.
 preservesz(::FusedFromGeocentric) = false
+ncoords(::FusedFromGeocentric) = 3
 
 islanesafe(t::FusedFromGeocentric) = islanesafe(t.geo) && islanesafe(t.proj)
 

@@ -180,11 +180,13 @@ _carriesz(::Type{Any}) = false
 # `src` holds GeoInterface points; for a tuple or an SVector `GI.x` is a
 # `getindex` and inlines away, so this costs nothing over `p[1]`.
 #
-# ...and as with `lanewidth_val`, the `Val` is built outside the loop:
-# `_carriesz` is a property of the destination type, but it does not infer as
-# a constant, so leaving it inside would put a dispatch on every point.
-@inline function _scalar_range!(dst, src, t, lo, hi)
+# Two coordinates go to the operator and a third, if the destination has one, is
+# carried across from the source point.
+@inline function _scalar_range!(dst, src, t, lo, hi, ::Val{2})
     P = eltype(dst)
+    # as with `lanewidth_val`, built outside the loop: `_carriesz` is a property
+    # of the destination type, but it does not infer as a constant, so leaving it
+    # inside would put a dispatch on every point
     zv = Val(_carriesz(P))
     @inbounds for i in lo:hi
         p = src[i]
@@ -193,17 +195,30 @@ _carriesz(::Type{Any}) = false
     end
 end
 
-# A transformation that changes heights takes all three coordinates together:
-# the transformed z comes back from the transformation rather than from the
-# source point, and x and y depend on the z going in. Selected once per chunk
-# by `_transform_pts!`, so the three-coordinate call is not a branch per point.
-@inline function _scalar_range_z!(dst, src, t, lo, hi)
+# ...and where the operator takes three, the transformed z comes back from it
+# rather than from the source point, and x and y depend on the z going in.
+# Selected once per chunk by `_transform_pts!`, so which form is called is not a
+# branch per point.
+@inline function _scalar_range!(dst, src, t, lo, hi, ::Val{3})
     P = eltype(dst)
     @inbounds for i in lo:hi
         p = src[i]
         x, y, z = t(GI.x(p), GI.y(p), GI.z(p))
         dst[i] = rebuildpoint(P, x, y, z)
     end
+end
+
+# How many coordinates travel together between a `S` source and a `D` destination:
+# what the operator takes ([`ncoords`](@ref)), capped by what the two ends have
+# room for. A three-coordinate operator over two-component points is *not* run at
+# an implied zero height -- it falls to 2 here and the operator's own
+# two-coordinate method refuses the call.
+#
+# A `Val`, so the count reaches the loops in the type domain: as an ordinary
+# integer it would leave the number of loads per lane-loop iteration, and which
+# scalar loop to run, unknown until run time.
+@inline function _ncoords_val(t, ::Type{S}, ::Type{D}) where {S,D}
+    (ncoords(t) >= 3 && _ncomponents(S) >= 3 && _carriesz(D)) ? Val(3) : Val(2)
 end
 
 @inline function _scalar_range!(dstx, dsty, srcx, srcy, t, lo, hi)
@@ -251,32 +266,38 @@ end
     end
 end
 
-# array-of-tuples: the two components are interleaved, addressed by row
-@generated function _lane_range_aos!(pd, ps, t, lo, hi, ::Val{W}, ::Val{U}) where {W,U}
+# array-of-tuples: the components are interleaved, addressed by row.
+#
+# `C` is how many of them the operator takes and returns -- 2 for a map
+# projection, 3 where the operator transforms the height rather than leaving it
+# for the destination to keep. Rows past `C` are not touched either way.
+@generated function _lane_range_aos!(pd, ps, t, lo, hi, ::Val{W}, ::Val{U},
+                                     ::Val{C}) where {W,U,C}
+    # one `vload`/`vstore!` per coordinate row, spliced in at each of the three
+    # loop bodies below
+    load(idx) = :(t($((:(vload(ps, ($c, MM{$W}($idx)))) for c in 1:C)...)))
+    loadm(idx) = :(t($((:(vload(ps, ($c, MM{$W}($idx)), m)) for c in 1:C)...)))
+    store(o, idx) = Expr(:block, (:(vstore!(pd, $o[$c], ($c, MM{$W}($idx)))) for c in 1:C)...)
+    storem(o, idx) = Expr(:block, (:(vstore!(pd, $o[$c], ($c, MM{$W}($idx)), m)) for c in 1:C)...)
     quote
         i = lo
         @inbounds while i + $(W * U) - 1 <= hi
             Base.Cartesian.@nexprs $U u -> begin
                 j_u = i + (u - 1) * $W
-                o_u = t(vload(ps, (1, MM{$W}(j_u))), vload(ps, (2, MM{$W}(j_u))))
+                o_u = $(load(:j_u))
             end
-            Base.Cartesian.@nexprs $U u -> begin
-                vstore!(pd, o_u[1], (1, MM{$W}(j_u)))
-                vstore!(pd, o_u[2], (2, MM{$W}(j_u)))
-            end
+            Base.Cartesian.@nexprs $U u -> $(store(:o_u, :j_u))
             i += $(W * U)
         end
         @inbounds while i + $W - 1 <= hi
-            o = t(vload(ps, (1, MM{$W}(i))), vload(ps, (2, MM{$W}(i))))
-            vstore!(pd, o[1], (1, MM{$W}(i)))
-            vstore!(pd, o[2], (2, MM{$W}(i)))
+            o = $(load(:i))
+            $(store(:o, :i))
             i += $W
         end
         @inbounds if i <= hi
             m = _lanemask(Val($W), hi - i + 1)
-            o = t(vload(ps, (1, MM{$W}(i)), m), vload(ps, (2, MM{$W}(i)), m))
-            vstore!(pd, o[1], (1, MM{$W}(i)), m)
-            vstore!(pd, o[2], (2, MM{$W}(i)), m)
+            o = $(loadm(:i))
+            $(storem(:o, :i))
         end
         nothing
     end
@@ -354,29 +375,12 @@ function transform!(dest::AbstractVector, t::GeoTransformation, src::AbstractVec
 end
 
 function _transform_pts!(dest, t::GeoTransformation, src, threaded)
-    n = length(src)
-    # A height-changing transformation is given the source height and returns
-    # the transformed one, so it cannot go through the interleaved path, which
-    # writes rows 1 and 2 and leaves the rest of the destination as it found it.
-    # Only where the points carry a height: with x and y alone there is none to
-    # transform, and 2D-in/2D-out is what such a pipeline is usually asked for.
-    #
-    # `islanesafe` is false for everything that changes a height today, so the
-    # check costs nothing; it is here because the two properties are independent
-    # and a lane-safe datum shift would otherwise take the carry-across path.
-    if !preservesz(t) && _ncomponents(eltype(src)) >= 3 && _carriesz(eltype(dest))
-        _run!(eachindex(src), threaded) do lo, hi
-            borrow(t) do tt
-                _scalar_range_z!(dest, src, tt, lo, hi)
-            end
-        end
-        return dest
-    end
+    C = _ncoords_val(t, eltype(src), eltype(dest))
     if islanesafe(t)
         Ms = _interleaved(src)
         Md = dest === src ? Ms : _interleaved(dest)
         if Ms !== nothing && Md !== nothing && eltype(Md) === eltype(Ms)
-            _transform_interleaved!(Md, Ms, t, n, threaded)
+            _transform_interleaved!(Md, Ms, t, length(src), threaded, C)
             return dest
         end
     end
@@ -387,15 +391,15 @@ function _transform_pts!(dest, t::GeoTransformation, src, threaded)
         # once per chunk, not per point: a transformation backed by a
         # resource its task must have to itself checks one out here
         borrow(t) do tt
-            _scalar_range!(dest, src, tt, lo, hi)
+            _scalar_range!(dest, src, tt, lo, hi, C)
         end
     end
     dest
 end
 
-# `Md` and `Ms` need not have the same number of rows: only rows 1 and 2 are
+# `Md` and `Ms` need not have the same number of rows: only the first `C` are
 # read and written, so a Point3 source can feed a Point2 destination.
-function _transform_interleaved!(Md, Ms, t, n, threaded)
+function _transform_interleaved!(Md, Ms, t, n, threaded, ::Val{C}) where {C}
     T = eltype(Ms)
     tt = adapt_eltype(t, T)
     W = lanewidth_val(T)
@@ -405,7 +409,7 @@ function _transform_interleaved!(Md, Ms, t, n, threaded)
         pd = stridedpointer(Md)
         ps = stridedpointer(Ms)
         _run!(1:n, threaded) do lo, hi
-            _lane_range_aos!(pd, ps, tt, lo, hi, W, Val(UNROLL))
+            _lane_range_aos!(pd, ps, tt, lo, hi, W, Val(UNROLL), Val(C))
         end
     end
     nothing

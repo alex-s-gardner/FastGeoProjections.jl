@@ -38,7 +38,9 @@ Point operator taking polar stereographic `(x, y)` in metres to geodetic
 parameters.
 
 Latitude comes from the conformal latitude by the sine series `φ = χ + Σ cₖ
-sin(2kχ)`, carried to `sin(10χ)` with every coefficient complete through `e¹⁰`.
+sin(2kχ)`, carried to `sin(10χ)` with every coefficient complete through `e¹⁰`
+and summed by [`Math.sin2_series`](@ref), which costs one `sincos` for the whole
+series.
 The series is truncated in two independent ways -- the number of harmonics and the
 `e²` order of each coefficient -- and the second is the one that binds: at four
 harmonics with coefficients through `e⁸` every term carries a comparable error, so
@@ -61,11 +63,7 @@ struct PolarStereographicToLonLat{T,K<:MathKernel} <: GeoTransformation
     pm::T
     t_c_over_am_c::T   # t_c / (a * m_c), folded into one multiply
     r2d::T
-    c2::T              # conformal -> geodetic latitude series, through e^10
-    c4::T
-    c6::T
-    c8::T
-    c10::T
+    c::NTuple{5,T}     # conformal -> geodetic latitude series, through e^10
     kernel::K
 end
 
@@ -97,11 +95,11 @@ end
 function _ps_to_lonlat(::Type{T}, a, e, lon_0, t_c, m_c, pm, kernel::K) where {T,K}
     PolarStereographicToLonLat{T,K}(
         a, e, lon_0, t_c, m_c, pm, t_c / (a * m_c), 180 / pi,
-        e^2 / 2 + 5 * e^4 / 24 + e^6 / 12 + 13 * e^8 / 360 + 3 * e^10 / 160,
-        7 * e^4 / 48 + 29 * e^6 / 240 + 811 * e^8 / 11520 + 81 * e^10 / 2240,
-        7 * e^6 / 120 + 81 * e^8 / 1120 + 3029 * e^10 / 53760,
-        4279 * e^8 / 161280 + 883 * e^10 / 20160,
-        2087 * e^10 / 161280,
+        (e^2 / 2 + 5 * e^4 / 24 + e^6 / 12 + 13 * e^8 / 360 + 3 * e^10 / 160,
+         7 * e^4 / 48 + 29 * e^6 / 240 + 811 * e^8 / 11520 + 81 * e^10 / 2240,
+         7 * e^6 / 120 + 81 * e^8 / 1120 + 3029 * e^10 / 53760,
+         4279 * e^8 / 161280 + 883 * e^10 / 20160,
+         2087 * e^10 / 161280),
         kernel)
 end
 
@@ -138,9 +136,7 @@ end
     rho = sqrt(x * x + y * y)
     chi = T(pi / 2) - 2 * Math.atan(K, rho * p.t_c_over_am_c)   # conformal latitude
 
-    lat = chi + p.c2 * Math.sin(K, 2 * chi) + p.c4 * Math.sin(K, 4 * chi) +
-                p.c6 * Math.sin(K, 6 * chi) + p.c8 * Math.sin(K, 8 * chi) +
-                p.c10 * Math.sin(K, 10 * chi)
+    lat = chi + Math.sin2_series(K, chi, p.c)
     lon = p.lon_0 + Math.atan(K, x, -p.pm * y)   # pm folds the southern flip of y
 
     lat = lat * p.pm * p.r2d

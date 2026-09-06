@@ -43,10 +43,13 @@ projection parameters, mapping one point to one point. Threading and vectorizati
 one per calling convention.
 
 - `transformations.jl` — `abstract type GeoTransformation`, the traits every operator answers
-  (`islanesafe`, `preservesz`, `adapt_eltype`), and `ComposedGeoTransformation`, a flat tuple that
-  inlines into one pass.
+  (`islanesafe`, `preservesz`, `ncoords`, `adapt_eltype`), and `ComposedGeoTransformation`, a flat
+  tuple that inlines into one pass.
 - `apply.jl` — `transform`/`transform!` over collections. Picks a SIMD lane loop or a scalar loop
-  per chunk, threads over chunks, and decides how a third coordinate is handled.
+  per chunk, threads over chunks, and decides how a third coordinate is handled. `_ncoords_val`
+  answers how many coordinates travel together — `ncoords(t)` capped by what the source and
+  destination have room for — as a `Val`, which selects both the lane loop's row count and the
+  scalar loop, so neither is decided per point.
 - `epsg.jl` — the EPSG registry. `pipeline()` composes `project_from_4326` with `project_to_4326`,
   since every projection is expressed relative to EPSG:4326 in (lon, lat) order.
 - `coord.jl` — `Transformation`, the public entry point, wrapping an operator plus the EPSG pair
@@ -73,17 +76,21 @@ axis orders, so an unclassified code fails rather than silently returning x and 
 - **`always_xy` differs by layer.** `false` on `Transformation` (authority order, so EPSG:4326 is
   lat, lon); the operators underneath are *always* xy. Axis order is handled by composing `SwapXY`
   onto the geographic end of a pipeline, not by a per-point branch.
-- **`islanesafe` and `preservesz` are independent traits.** Lane-safe means evaluable on `Vec`
-  lanes; `preservesz` means a third coordinate passes through untouched. A map projection is both;
-  the geocentric conversions are lane-safe but transform the height. Code that conflates them takes
-  the wrong path silently.
+- **`islanesafe`, `preservesz` and `ncoords` are independent traits.** Lane-safe means evaluable on
+  `Vec` lanes; `preservesz` means a third coordinate passes through untouched; `ncoords` is how many
+  coordinates the operator takes at once. A map projection is lane-safe, preserving, and 2; the
+  geocentric conversions are lane-safe, non-preserving, and 3. Code that conflates them takes the
+  wrong path silently.
 - **A height is transformed, not carried, where the transformation changes one.** For a datum shift
   or a geocentric conversion, the two-coordinate call is the `h = 0` point — which moves x and y by
   metres — so `LonLatToGeocentric` and `GeocentricToLonLat` reject it rather than assume sea level.
 - **Fusion.** Composing `GeocentricToLonLat` with a projection would form `atan(z, d)` and
   `atan(y, x)` and then immediately take their sines and cosines. `Direction` (`projections/direction.jl`)
   carries the unnormalized direction instead, a projection opts in with `project_direction`, and
-  `pipeline` substitutes `FusedFromGeocentric`. This is the one place a pipeline is not literally
+  `pipeline` substitutes `FusedFromGeocentric`. `Direction`'s type parameter follows its
+  components, so it holds a `Vec` of lanes on the SIMD path; constructing it as `Direction{T}`
+  from an operator's own precision instead pins it to a scalar and throws on that path. This is
+  the one place a pipeline is not literally
   `to ∘ from`.
 - **`tranmerc.jl` is written for the compiler, not the reader.** Branches are `ifelse` and boolean
   arithmetic so the body vectorizes; the Clenshaw recurrences are spelled out rather than looped.
@@ -100,21 +107,23 @@ Measured on aarch64 (M2 Max), 1 thread, 100k points, out of place, over a vector
 | pipeline | ns/point |
 |---|---|
 | 3857→4326 web Mercator, inverse | ~5 |
+| 4979→4978 geocentric forward | ~8 |
 | 4326→3413 polar stereographic | ~10 |
-| 4979→4978 geocentric forward | ~12 |
+| 3413→4326 polar stereographic, inverse | ~13 |
 | 4326→3857 web Mercator | ~16 |
-| 3413→4326 polar stereographic, inverse | ~23 |
-| 4978→3413 fused geocentric | ~36 |
-| 4978→4979 geocentric inverse | ~43 |
-| 4326→32619 UTM | ~49 |
-| 4978→3857 fused geocentric | ~70 |
+| 4978→3413 fused geocentric | ~20 |
+| 4978→4979 geocentric inverse | ~24 |
+| 4978→3857 fused geocentric | ~35 |
+| 4326→32619 UTM | ~50 |
 | 32619→4326 UTM, inverse | ~77 |
 
 Two coordinate vectors run 2–3 ns/point faster than a vector of points, all of it the strided
 AoS load; the shape a number is quoted in matters at this scale.
 
-The polar stereographic inverse costs twice its forward because the conformal→geodetic series is
-five `Math.sin` calls against the forward's one `Math.conformal_ratio`.
+The polar stereographic inverse costs a little more than its forward: the conformal→geodetic
+series is one `Math.sincos` and a Clenshaw recurrence ([`Math.sin2_series`](@ref)) against the
+forward's one `Math.conformal_ratio`. Evaluating the same series as five separate sines costs
+2.8× that and put the inverse at ~23 ns/point.
 
 `benchmark/benchmark.jl` measures whole pipelines against Proj across point counts and writes
 `benchmark/benchmark.png`; `benchmark/optimize_bench.jl` measures individual operators per call
@@ -149,11 +158,9 @@ under about 8%.
 
 ### Known gaps
 
-- **A height-transforming operator never reaches the SIMD lane loop.** `_transform_pts!` sends it
-  to the scalar path, because the interleaved loop writes rows 1 and 2 and preserves the rest. The
-  cost is small — the geocentric forward on the scalar path is ~12 ns/point, in the range the 2-D
-  projections reach on the lane path — but a 3-coordinate lane loop would recover roughly 2× on
-  that operator.
+- **The struct-of-arrays path takes x and y only.** A height-transforming operator handed three
+  vectors has nowhere to put the third, so `transform(t, X, Y)` has no geocentric form and such a
+  pipeline has to go through a vector of 3-component points.
 - **`_lane_range_aos!` is not worth tuning.** Running `Identity` through it measures 0.68–0.81
   ns/point, so the loop is ~4% of a projection's runtime and the strided AoS load costs 0.44
   ns/point over the contiguous SoA one. `UNROLL` (2/4/8/16) and `CHUNK` are all inside the noise

@@ -126,12 +126,15 @@ between it and this.
     k = sqrt(u + rv + w * w) - w
     d = (k * sqrt(lat2)) / (k + e2)
     h = ((k + e2 - 1) * sqrt(d * d + z * z)) / k
-    (Direction{T}(d, z, x, y), h)
+    (Direction(d, z, x, y), h)
 end
 
-# A height is what these compute, so it cannot be carried across them.
+# A height is what these compute, so it cannot be carried across them, and all
+# three coordinates travel together.
 preservesz(::LonLatToGeocentric) = false
 preservesz(::GeocentricToLonLat) = false
+ncoords(::LonLatToGeocentric) = 3
+ncoords(::GeocentricToLonLat) = 3
 
 # Two coordinates would mean a height of zero. That is not a sea-level default:
 # it moves x and y by metres, so it is a caller error rather than an assumption
