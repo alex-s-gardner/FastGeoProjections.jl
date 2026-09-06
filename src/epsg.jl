@@ -116,7 +116,7 @@ function pipeline(source_epsg::EPSG, target_epsg::EPSG;
                   always_xy::Bool = false, proj_only::Bool = false,
                   T::Type = Float64, kernel::MathKernel = DEFAULT_KERNEL)
     if proj_only || !isfastepsg(source_epsg, target_epsg)
-        return ProjTransformation(source_epsg, target_epsg; always_xy)
+        return proj_transformation(source_epsg, target_epsg, always_xy)
     end
     from = project_to_4326(source_epsg; T, kernel)
     to = project_from_4326(target_epsg; T, kernel)

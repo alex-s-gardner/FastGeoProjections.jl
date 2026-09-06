@@ -1,52 +1,56 @@
+# The Proj-backed fallback: everything about it that does not mention Proj.
+#
+# Proj is a weak dependency, so the PJ objects this pools are opaque here -- the
+# element type `P` is filled in by the extension in `ext/`, which is also where
+# they are built. What lives here is the pooling, the calling convention and the
+# traits, none of which need Proj to be loaded to be compiled.
+
 """
-    ProjTransformation(source_epsg, target_epsg; always_xy = false)
+    ProjTransformation
 
-Fallback point operator backed by Proj, used for any CRS pair
-FastGeoProjections has no native implementation for.
+Fallback point operator backed by Proj, used for any CRS pair FastGeoProjections
+has no native implementation for. Built by [`pipeline`](@ref), and only once
+`Proj` has been loaded -- see [`proj_transformation`](@ref).
 
-A PJ object may not be shared across threads, so this holds a small pool of
-them -- each with its own cloned context -- which a task checks out for the
-range it is working on and returns afterwards. A task that finds the pool
-empty waits for one to come back.
+A PJ object may not be shared across threads, so this holds a small pool of them
+-- each with its own cloned context -- which a task checks out for the range it is
+working on and returns afterwards. A task that finds the pool empty waits for one
+to come back.
 
-The pool is checked out rather than indexed by `threadid()`: a thread id is
-not a stable identity for a task, which may migrate between yield points, and
-a thread adopted after construction (a `@ccallable` entry from a foreign
-thread, say) has an id past the end of any array sized when the object was
-built.
+The pool is checked out rather than indexed by `threadid()`: a thread id is not a
+stable identity for a task, which may migrate between yield points, and a thread
+adopted after construction (a `@ccallable` entry from a foreign thread, say) has
+an id past the end of any array sized when the object was built.
 """
-struct ProjPJ
-    ctx::Ptr{Cvoid}
-    pj::Proj.Transformation
-end
-
-mutable struct ProjTransformation <: GeoTransformation
+mutable struct ProjTransformation{P} <: GeoTransformation
     source_epsg::EPSG
     target_epsg::EPSG
     always_xy::Bool
-    pool::Channel{ProjPJ}
-    all::Vector{ProjPJ}
+    pool::Channel{P}
+    all::Vector{P}
 end
 
-function ProjTransformation(source_epsg::EPSG, target_epsg::EPSG; always_xy::Bool = false)
-    src = "EPSG:$(first(source_epsg.val))"
-    tgt = "EPSG:$(first(target_epsg.val))"
-    n = max(Threads.nthreads(), 1)
-    all = map(1:n) do _
-        ctx = Proj.proj_context_clone()
-        ProjPJ(ctx, Proj.Transformation(src, tgt; ctx, always_xy))
-    end
-    pool = Channel{ProjPJ}(n)
-    foreach(p -> put!(pool, p), all)
-    t = ProjTransformation(source_epsg, target_epsg, always_xy, pool, all)
-    # the PJ objects reference their context, so they must be released first
-    finalizer(t) do x
-        close(x.pool)
-        foreach(p -> finalize(p.pj), x.all)
-        foreach(p -> Proj.proj_context_destroy(p.ctx), x.all)
-        empty!(x.all)
-    end
-    t
+"""
+    proj_transformation(source_epsg, target_epsg, always_xy)
+
+Build the [`ProjTransformation`](@ref) for a CRS pair. Implemented by the package
+extension that `Proj` loads; without it there is no fallback, so this throws and
+says what to import.
+
+The error is raised where the transformation is built rather than where it is
+first applied, so the message can name the CRS pair that has no native
+implementation.
+
+The fallback defined here is deliberately untyped in its arguments: the extension
+adds the `(::EPSG, ::EPSG, ::Bool)` method, and a method it could *overwrite*
+rather than take precedence over would make the extension fail to precompile.
+"""
+function proj_transformation(source_epsg, target_epsg, always_xy)
+    throw(ArgumentError("""
+        FastGeoProjections has no native transformation from \
+        EPSG:$(first(source_epsg.val)) to EPSG:$(first(target_epsg.val)).
+        Run `import Proj` to use the Proj.jl fallback for this CRS pair; the \
+        natively implemented codes are in `FastGeoProjections.fast_epsg_codes`."""))
 end
 
 function borrow(f, t::ProjTransformation)
@@ -72,8 +76,18 @@ function (t::ProjTransformation)(x, y)
     end
 end
 
+# the third coordinate goes to Proj, which applies the pipeline to it
+function (t::ProjTransformation)(x, y, z)
+    p = take!(t.pool)
+    try
+        p.pj(x, y, z)
+    finally
+        put!(t.pool, p)
+    end
+end
+
 Base.inv(t::ProjTransformation) =
-    ProjTransformation(t.target_epsg, t.source_epsg; always_xy = t.always_xy)
+    proj_transformation(t.target_epsg, t.source_epsg, t.always_xy)
 
 islanesafe(::ProjTransformation) = false
 
@@ -89,16 +103,6 @@ preservesz(::ProjTransformation) = false
 # operators do not: 2D in and 2D out is a thing Proj resolves, and is what such a
 # pipeline is usually asked for, so it is not an error here the way it is for
 # `LonLatToGeocentric`. This is why the two traits are separate.
-
-# the third coordinate goes to Proj, which applies the pipeline to it
-function (t::ProjTransformation)(x, y, z)
-    p = take!(t.pool)
-    try
-        p.pj(x, y, z)
-    finally
-        put!(t.pool, p)
-    end
-end
 
 Base.show(io::IO, t::ProjTransformation) =
     print(io, "ProjTransformation(EPSG:", first(t.source_epsg.val),
