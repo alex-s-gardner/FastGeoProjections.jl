@@ -1,5 +1,4 @@
 module FastGeoProjections
-    using Proj # Proj dependancy included untill package is more mature
     using GeoFormatTypes
     using CoordinateTransformations
     using VectorizationBase

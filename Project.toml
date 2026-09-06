@@ -7,9 +7,14 @@ version = "0.1.0"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
 GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
-Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
 SLEEFPirates = "476501e8-09a2-5ece-8869-fb82de89a1fa"
 VectorizationBase = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
+
+[weakdeps]
+Proj = "c94c279d-25a6-4763-9509-64d165bea63e"
+
+[extensions]
+FastGeoProjectionsProjExt = "Proj"
 
 [compat]
 Proj = "1"
@@ -30,5 +35,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-benchmark = ["BenchmarkTools", "DataFrames", "GLMakie"]
-test = ["Test", "GeometryBasics", "StaticArrays"]
+benchmark = ["BenchmarkTools", "DataFrames", "GLMakie", "Proj"]
+# Proj is a weak dependency, but accuracy here is *defined* against it: every
+# native projection is asserted against Proj, so the suite needs it regardless.
+test = ["Test", "GeometryBasics", "StaticArrays", "Proj"]

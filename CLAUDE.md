@@ -9,6 +9,9 @@ projections it implements and delegating to `Proj.jl` for everything else. Not a
 `fast_epsg_codes` in `src/epsg.jl` is the whole native set — 3031, 3413, 3857, 4326, 4978, 4979, plus
 UTM 326XX/327XX.
 
+`Proj.jl` is a weak dependency, so nothing in that set loads it. A pair outside the set throws
+naming both codes and telling the caller to `import Proj`, which enables the fallback.
+
 Accuracy is defined against Proj. Every native projection is asserted against it in the test suite,
 to 5.5e-9 m for UTM, ~2e-9 m for the geocentric conversions, and 2.4e-8 m for the polar
 stereographic inverse — the least accurate of them, and the one place where the limit is a
@@ -23,6 +26,10 @@ julia --project=. --threads=8 -e 'import Pkg; Pkg.test()'        # threading pat
 
 # single test file
 julia --project=. -e 'using TestEnv; TestEnv.activate(); include("test/transformations.jl")'
+
+# the package without Proj: the package project has it only as a weakdep, so this is
+# the state a user who has not imported Proj is in
+julia --startup-file=no --project=. -e 'using FastGeoProjections; ...'
 
 # benchmarks; the `benchmark/` project carries its own dev'd path to this one
 julia --project=benchmark --threads=8 benchmark/benchmark.jl        # vs Proj, writes benchmark.png
@@ -56,6 +63,12 @@ one per calling convention.
   and flags. Implements the CoordinateTransformations API.
 - `proj.jl` — `ProjTransformation`, the fallback. Holds one cloned PROJ context per thread in a
   `Channel` pool, checked out via `borrow` once per chunk (a context is single-thread-only).
+  Proj is a **weak dependency**: the pooling, calling convention and traits live here, while
+  `ext/FastGeoProjectionsProjExt.jl` builds the PJ objects, so the pooled element type is a
+  parameter (`ProjTransformation{P}`) rather than a Proj type. `proj_transformation` is the
+  seam — its untyped fallback in `src/` throws with an `import Proj` hint, and the extension
+  adds the `(::EPSG, ::EPSG, ::Bool)` method that takes precedence. The signatures must
+  differ: an extension method that *overwrites* rather than specializes fails to precompile.
 - `kernels.jl` — the `Math` submodule: `sin`, `cos`, `pow`, `cbrt`, … each taking a `MathKernel`
   first argument, dispatching to SLEEFPirates' `_fast` routines (`FastKernel`, the default), its
   fully-reduced ones (`SLEEFKernel`), or Base's libm (`BaseKernel`). These are plain Julia, so they

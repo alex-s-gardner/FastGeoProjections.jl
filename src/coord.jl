@@ -30,6 +30,12 @@ call with the `threaded` keyword of `transform`/`transform!`.
 `proj_only` forces the use of Proj.jl even where a native FastGeoProjections
 implementation exists. By default Proj.jl is used only when there is none.
 
+Proj.jl is a weak dependency: the CRSs in
+[`fast_epsg_codes`](@ref) need nothing but this package, and the Proj-backed
+fallback arrives with `import Proj`. Constructing a transformation that needs it
+without it loaded is an error naming the CRS pair, rather than a silently slower
+or absent result.
+
 `T` is the working precision and `kernel` the transcendental back-end; see
 [`FastKernel`](@ref), [`SLEEFKernel`](@ref) and [`BaseKernel`](@ref).
 
