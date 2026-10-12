@@ -22,6 +22,7 @@ module FastGeoProjections
     include("proj.jl")
     include("epsg.jl")
     include("coord.jl")
+    include("crs.jl")
 
     export EPSG
     export Transformation, transform, transform!, inv
@@ -33,4 +34,5 @@ module FastGeoProjections
     export LonLatToWebMercator, WebMercatorToLonLat
     export LonLatToGeocentric, GeocentricToLonLat
     export Math, MathKernel, BaseKernel, SLEEFKernel, FastKernel
+    export NativeCRS, GeographicCRS, UTMCRS, PolarStereographicCRS, native_crs
 end
